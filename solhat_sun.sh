@@ -29,7 +29,7 @@ source location.sh
 
 
 STUMP_LOG_AT_LEVEL=info
-
+HOTPIXEL_MAP=~/.solhat/hotpixels.toml
 CHROME_MAX_SCALE=99
 PROM_MAX_SCALE=100
 PHOTO_MAX_SCALE=90
@@ -166,10 +166,17 @@ FLAT_FRAME=$DATAROOT/Flat_${DATA_TS}${VERSION}.tif
 DARKFLAT_FRAME=$DATAROOT/Dark-Flat_${DATA_TS}${VERSION}.tif
 BIAS_FRAME=$DATAROOT/Bias_${DATA_TS}${VERSION}.tif
 
+if [ "x$HOTPIXEL_MAP" != "x" -a -f $HOTPIXEL_MAP ]; then
+    HOTPIXEL_PARAM="-p $HOTPIXEL_MAP"
+else
+    HOTPIXEL_PARAM=
+fi
+
+
 echo Creating calibration frames...
 echo Creating dark frame
 if [ ! -f $DARK_FRAME ]; then
-    $SOLHAT_BIN median -i $DATAROOT/$DARK_ROOT/*/*ser -o $DARK_FRAME
+    $SOLHAT_BIN median -i $DATAROOT/$DARK_ROOT/*/*ser -o $DARK_FRAME $HOTPIXEL_PARAM
     if [ ! -f $DARK_FRAME -o $? -ne 0 ]; then
         echo Error: Failed to generate dark frame
     fi
@@ -177,7 +184,7 @@ fi
 
 echo Creating flat frame
 if [ ! -f $FLAT_FRAME ]; then
-    $SOLHAT_BIN median -i $DATAROOT/$FLAT_ROOT/*/*ser -o $FLAT_FRAME
+    $SOLHAT_BIN median -i $DATAROOT/$FLAT_ROOT/*/*ser -o $FLAT_FRAME $HOTPIXEL_PARAM
     if [ ! -f $FLAT_FRAME -o $? -ne 0 ]; then
         echo Error: Failed to generate flat frame
     fi
@@ -185,7 +192,7 @@ fi
 
 echo Creating darkflat frame
 if [ ! -f $DARKFLAT_FRAME ]; then
-    $SOLHAT_BIN median -i $DATAROOT/$DARK_FLAT_ROOT/*/*ser -o $DARKFLAT_FRAME
+    $SOLHAT_BIN median -i $DATAROOT/$DARK_FLAT_ROOT/*/*ser -o $DARKFLAT_FRAME $HOTPIXEL_PARAM
     if [ ! -f $DARKFLAT_FRAME -o $? -ne 0 ]; then
         echo Error: Failed to generate flat-dark frame
     fi
@@ -193,7 +200,7 @@ fi
 
 echo Creating bias frame
 if [ ! -f $BIAS_FRAME ]; then
-    $SOLHAT_BIN median -i $DATAROOT/$BIAS_ROOT/*/*ser -o $BIAS_FRAME
+    $SOLHAT_BIN median -i $DATAROOT/$BIAS_ROOT/*/*ser -o $BIAS_FRAME $HOTPIXEL_PARAM
     if [ ! -f $BIAS_FRAME -o $? -ne 0 ]; then
         echo Error: Failed to generate bias frame
     fi
@@ -230,7 +237,8 @@ echo $SOLHAT_BIN process -i $DATAROOT/$CHROME_ROOT/*/*ser \
                 -n $FRAME_LIMIT \
                 -I 0 \
                 -T sun \
-                -u $DRIZZLE_SCALE
+                -u $DRIZZLE_SCALE \
+                $HOTPIXEL_PARAM
 
 $SOLHAT_BIN process -i $DATAROOT/$CHROME_ROOT/*/*ser \
                 -d $DARK_FRAME \
@@ -249,7 +257,8 @@ $SOLHAT_BIN process -i $DATAROOT/$CHROME_ROOT/*/*ser \
                 -n $FRAME_LIMIT \
                 -I 0 \
                 -T sun \
-                -u $DRIZZLE_SCALE 
+                -u $DRIZZLE_SCALE \
+                $HOTPIXEL_PARAM
                ## -m $MASKROOT/Sun_Chromosphere_1200x1200_v2.png
  
 # echo "Creating Limb Darkening Corrected Image..."
@@ -270,7 +279,7 @@ if [ $HAS_PROM -eq 1 ]; then
     PROM_DARK_FRAME=$DATAROOT/Prom_Dark_${DATA_TS}${VERSION}.tif
     echo Creating calibration frames...
     if [ ! -f $PROM_DARK_FRAME ]; then
-        $SOLHAT_BIN median -i $DATAROOT/$PROM_DARK_ROOT/*/*ser -o $PROM_DARK_FRAME
+        $SOLHAT_BIN median -i $DATAROOT/$PROM_DARK_ROOT/*/*ser -o $PROM_DARK_FRAME $HOTPIXEL_PARAM
         if [ ! -f $PROM_DARK_FRAME -o $? -ne 0 ]; then
             echo Error: Failed to generate dark frame
         fi
@@ -307,7 +316,8 @@ if [ $HAS_PROM -eq 1 ]; then
                             -n $FRAME_LIMIT \
                             -I 0 \
                             -T sun \
-                            -u $DRIZZLE_SCALE
+                            -u $DRIZZLE_SCALE \
+                            $HOTPIXEL_PARAM
 
 fi
 
@@ -318,17 +328,17 @@ if [ $HAS_PHOTO -eq 1 ]; then
     PHOTO_DARKFLAT_FRAME=$DATAROOT/Photo_Dark-Flat_${DATA_TS}${VERSION}.tif
 
     # echo Creating photosphere calibration frames...
-    $SOLHAT_BIN median -i $DATAROOT/$PHOTO_DARK_ROOT/*/*ser -o $PHOTO_DARK_FRAME
+    $SOLHAT_BIN median -i $DATAROOT/$PHOTO_DARK_ROOT/*/*ser -o $PHOTO_DARK_FRAME $HOTPIXEL_PARAM
     if [ ! -f $PHOTO_DARK_FRAME -o $? -ne 0 ]; then
         echo Error: Failed to generate photosphere dark frame
     fi
 
-    $SOLHAT_BIN median -i $DATAROOT/$PHOTO_FLAT_ROOT/*/*ser -o $PHOTO_FLAT_FRAME
+    $SOLHAT_BIN median -i $DATAROOT/$PHOTO_FLAT_ROOT/*/*ser -o $PHOTO_FLAT_FRAME $HOTPIXEL_PARAM
     if [ ! -f $PHOTO_FLAT_FRAME -o $? -ne 0 ]; then
         echo Error: Failed to generate photosphere flat frame
     fi
 
-    $SOLHAT_BIN median -i $DATAROOT/$PHOTO_DARK_FLAT_ROOT/*/*ser -o $PHOTO_DARKFLAT_FRAME
+    $SOLHAT_BIN median -i $DATAROOT/$PHOTO_DARK_FLAT_ROOT/*/*ser -o $PHOTO_DARKFLAT_FRAME $HOTPIXEL_PARAM
     if [ ! -f $PHOTO_DARKFLAT_FRAME -o $? -ne 0 ]; then
         echo Error: Failed to generate photosphere flat-dark frame
     fi
@@ -364,7 +374,8 @@ if [ $HAS_PHOTO -eq 1 ]; then
                             -s $PHOTO_SIGMA_MIN \
                             -I 0 \
                             -T sun \
-                            -u $DRIZZLE_SCALE
+                            -u $DRIZZLE_SCALE \
+                            $HOTPIXEL_PARAM
 fi
 
 

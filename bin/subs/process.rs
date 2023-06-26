@@ -87,6 +87,9 @@ pub struct Process {
 
     #[clap(long, short = 'r', help = "Process report path")]
     report: Option<String>,
+
+    #[clap(long, short = 'p', help = "Hot pixel map")]
+    hotpixelmap: Option<String>,
 }
 
 #[async_trait::async_trait]
@@ -138,6 +141,7 @@ impl RunnableSubcommand for Process {
                 dark_inputs: self.dark.to_owned(),
                 darkflat_inputs: self.darkflat.to_owned(),
                 bias_inputs: self.bias.to_owned(),
+                hot_pixel_map: self.hotpixelmap.to_owned(),
             },
             master_flat,
             master_darkflat,

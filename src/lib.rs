@@ -11,6 +11,7 @@ pub mod context;
 pub mod drizzle;
 pub mod fpmap;
 pub mod framerecord;
+pub mod hotpixel;
 pub mod limiting;
 pub mod lunar;
 pub mod mean;

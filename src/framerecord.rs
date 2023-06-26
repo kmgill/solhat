@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 
 use crate::context::ProcessContext;
+use crate::hotpixel;
 use crate::ser::SerFrame;
 use crate::target::TargetPosition;
 use crate::timestamp::TimeStamp;
@@ -38,6 +39,11 @@ impl FrameRecord {
             &context.master_darkflat.image,
             &context.master_bias.image,
         );
+
+        if let Some(hpm) = &context.hotpixel_mask {
+            frame_buffer.buffer = hotpixel::replace_hot_pixels(&mut frame_buffer.buffer, hpm);
+        }
+
         Ok(frame_buffer)
     }
 

@@ -2,12 +2,14 @@ use crate::calibrationframe::CalibrationImage;
 use crate::drizzle::Scale;
 use crate::fpmap::FpMap;
 use crate::framerecord::FrameRecord;
+use crate::hotpixel;
 use crate::ser::SerFile;
 use crate::stats::ProcessStats;
 use crate::target::Target;
 use anyhow::Result;
 use rayon::prelude::*;
 use sciimg::imagebuffer::Offset;
+use sciimg::prelude::ImageBuffer;
 
 #[derive(Debug, Clone)]
 pub struct ProcessParameters {
@@ -28,6 +30,7 @@ pub struct ProcessParameters {
     pub dark_inputs: Option<String>,
     pub darkflat_inputs: Option<String>,
     pub bias_inputs: Option<String>,
+    pub hot_pixel_map: Option<String>,
 }
 
 pub struct ProcessContext {
@@ -39,6 +42,7 @@ pub struct ProcessContext {
     pub master_bias: CalibrationImage,
     pub stats: ProcessStats,
     pub frame_records: Vec<FrameRecord>,
+    pub hotpixel_mask: Option<ImageBuffer>,
 }
 
 fn load_frame_records_for_ser(ser_file: &SerFile, number_of_frames: usize) -> Vec<FrameRecord> {
@@ -62,6 +66,16 @@ fn load_frame_records_for_ser(ser_file: &SerFile, number_of_frames: usize) -> Ve
         .collect::<Vec<FrameRecord>>()
 }
 
+fn load_hot_pixel_mask(file_path: &Option<String>) -> Result<Option<ImageBuffer>> {
+    if let Some(hpm_path) = file_path {
+        Ok(Some(hotpixel::create_hotpixel_mask(
+            &hotpixel::load_hotpixel_map(hpm_path)?,
+        )?))
+    } else {
+        Ok(None)
+    }
+}
+
 impl ProcessContext {
     pub fn create_with_calibration_frames(
         params: &ProcessParameters,
@@ -79,6 +93,7 @@ impl ProcessContext {
             master_bias,
             stats: ProcessStats::default(),
             frame_records: vec![],
+            hotpixel_mask: load_hot_pixel_mask(&params.hot_pixel_map)?,
         };
 
         params.input_files.iter().for_each(|input_file| {

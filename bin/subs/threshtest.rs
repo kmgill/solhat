@@ -83,6 +83,7 @@ impl RunnableSubcommand for ThreshTest {
                 dark_inputs: self.dark.to_owned(),
                 darkflat_inputs: self.darkflat.to_owned(),
                 bias_inputs: self.bias.to_owned(),
+                hot_pixel_map: None,
             },
             master_flat,
             master_darkflat,

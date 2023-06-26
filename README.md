@@ -83,6 +83,21 @@ where the first argument is the path to the base directory of your imaging. The 
 
 The script will output the various master calibration images, a threshold test image, and the final image. If rerun with the same free-text argument, the script will reuse the master calibration files. 
 
+### Hot Pixel Map
+SolHat can be provided a TOML-formatted file containing information needed to replace hot pixels. This file contains the sensor width and height, and a list of x/y coordinates of pixels. By default, the scripts will look for the file at `~/.solhat/hotpixels.toml`.
+
+An example Hot Pixel Map file:
+```
+sensor_width = 1936
+sensor_height = 1216
+hotpixels = [
+        [ 1169 , 48 ],
+        [ 170 , 997 ],
+        [ 395 , 733 ],
+        [ 1193 , 854 ],
+]
+```
+
 ## References:
 Telea, Alexandru. (2004). An Image Inpainting Technique Based on the Fast Marching Method. Journal of Graphics Tools. 9. 10.1080/10867651.2004.10487596. 
 https://www.researchgate.net/publication/238183352_An_Image_Inpainting_Technique_Based_on_the_Fast_Marching_Method
