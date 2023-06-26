@@ -1,0 +1,48 @@
+[package]
+name = "solhat"
+version = "0.6.0"
+authors = ["Kevin M. Gill <apoapsys@gmail.com>"]
+edition = "2021"
+description = "Solar Hydrogen Alpha Telescope: A set of utilities and a pipeline for processing raw hydrogen-alpha solar imaging using lucky imaging"
+repository = "https://github.com/kmgill/solhat"
+readme = "README.md"
+keywords = ["sun", "astrophotography", "science"]
+license = "MIT" 
+
+[lib]
+name = "solhat"
+
+[[bin]]
+name = "solhat"
+path = "bin/solhat.rs"
+
+[profile.release]
+# strip = true  # Automatically strip symbols from the binary.
+debug = 2
+
+
+[dependencies]
+image = "0.24.1"
+imageproc = "0.23.0"
+clap = { version = "4.2.7", features = ["derive"] }
+memmap = "0.7.0"
+astro = "2.0.0"
+sun = "0.2.0"
+chrono = "0.4.19"
+fastblur = "0.1.1"
+rayon = "1.5.3"
+sciimg = {git = "https://github.com/MarsRaw/sciimg.git", branch = "kmgill_develop", features = ["rayon"]}
+# sciimg = {path = "../sciimg"}
+stump = {git = "https://github.com/MarsRaw/stump.git"}
+toml = "0.7.4"
+serde = { version = "1.0.125", features = ["derive"] }
+astral = {  git="https://github.com/kmgill/astral" }
+wild = "2.0.4"
+num_cpus = "1.13.1"
+anyhow = "1.0.65"
+indicatif = "0.17.3"
+lazy_static = "1.4.0"
+serde_json = "1.0.64"
+async-trait = "0.1.57"
+tokio = {version="1.21.2", features= ["full"]}
+colored = "2.0.0"
