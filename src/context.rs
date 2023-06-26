@@ -1,9 +1,12 @@
 use crate::calibrationframe::CalibrationImage;
 use crate::drizzle::Scale;
 use crate::fpmap::FpMap;
+use crate::framerecord::FrameRecord;
+use crate::ser::SerFile;
 use crate::stats::ProcessStats;
 use crate::target::Target;
 use anyhow::Result;
+use rayon::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct ProcessParameters {
@@ -34,6 +37,23 @@ pub struct ProcessContext {
     pub master_darkflat: CalibrationImage,
     pub master_bias: CalibrationImage,
     pub stats: ProcessStats,
+    pub frame_records: Vec<FrameRecord>,
+}
+
+fn load_frame_records_for_ser(ser_file: &SerFile, number_of_frames: usize) -> Vec<FrameRecord> {
+    let frame_count = if ser_file.frame_count > number_of_frames {
+        number_of_frames
+    } else {
+        ser_file.frame_count
+    };
+    (0..frame_count)
+        .into_par_iter()
+        .map(|i| FrameRecord {
+            source_file_id: ser_file.source_file.to_string(),
+            frame_id: i,
+            sigma: 0.0,
+        })
+        .collect::<Vec<FrameRecord>>()
 }
 
 impl ProcessContext {
@@ -52,6 +72,7 @@ impl ProcessContext {
             master_darkflat: master_dark,
             master_bias: master_bias,
             stats: ProcessStats::default(),
+            frame_records: vec![],
         };
 
         params.input_files.iter().for_each(|input_file| {
@@ -59,6 +80,20 @@ impl ProcessContext {
                 .open(input_file)
                 .expect("Failed to open input file");
         });
+
+        pc.frame_records = pc
+            .fp_map
+            .get_map()
+            .par_iter()
+            .map(|(_, ser)| {
+                load_frame_records_for_ser(&ser, params.max_frames.unwrap_or(100000000))
+            })
+            .collect::<Vec<Vec<FrameRecord>>>()
+            .iter()
+            .flatten()
+            .map(|fr| fr.to_owned())
+            .collect::<Vec<FrameRecord>>();
+
         Ok(pc)
     }
 }

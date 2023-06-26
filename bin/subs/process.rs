@@ -2,9 +2,11 @@ use crate::subs::runnable::RunnableSubcommand;
 use anyhow::Result;
 use clap::Parser;
 use sciimg::prelude::*;
+use solhat::anaysis::frame_sigma_analysis;
 use solhat::calibrationframe::CalibrationImage;
 use solhat::context::*;
 use solhat::drizzle::Scale;
+use solhat::limiting::frame_limit_determinate;
 use solhat::target::Target;
 use std::process;
 
@@ -112,7 +114,7 @@ impl RunnableSubcommand for Process {
             CalibrationImage::new_empty()
         };
 
-        let context = ProcessContext::create_with_calibration_frames(
+        let mut context = ProcessContext::create_with_calibration_frames(
             &ProcessParameters {
                 input_files: self.input_files.clone(),
                 obj_detection_threshold: self.threshold.unwrap_or(5000.0),
@@ -137,6 +139,12 @@ impl RunnableSubcommand for Process {
             master_dark,
             master_bias,
         )?;
+
+        // Calculate frame sigmas (quality)
+        context.frame_records = frame_sigma_analysis(&context, |_fr| {})?;
+
+        // Limit frames based on rules.
+        context.frame_records = frame_limit_determinate(&context, |_fr| {})?;
         Ok(())
     }
 }

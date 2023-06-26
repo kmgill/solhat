@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use crate::context::ProcessContext;
 use crate::ser::SerFrame;
 use crate::target::Target;
@@ -5,6 +7,7 @@ use crate::target::TargetPosition;
 use crate::timestamp::TimeStamp;
 use anyhow::Result;
 
+#[derive(Debug, Clone)]
 pub struct FrameRecord {
     pub source_file_id: String,
     pub frame_id: usize,
@@ -50,3 +53,29 @@ impl FrameRecord {
         target.position_from_lat_lon_and_time(obs_latitude, obs_longitude, &ts)
     }
 }
+
+impl Ord for FrameRecord {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.sigma < other.sigma {
+            Ordering::Less
+        } else if self.sigma == other.sigma {
+            Ordering::Equal
+        } else {
+            Ordering::Greater
+        }
+    }
+}
+
+impl PartialOrd for FrameRecord {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for FrameRecord {
+    fn eq(&self, other: &Self) -> bool {
+        self.sigma == other.sigma
+    }
+}
+
+impl Eq for FrameRecord {}

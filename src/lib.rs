@@ -1,12 +1,14 @@
 #[macro_use]
 extern crate stump;
 
+pub mod anaysis;
 pub mod calibrationframe;
 pub mod centerofmass;
 pub mod context;
 pub mod drizzle;
 pub mod fpmap;
 pub mod framerecord;
+pub mod limiting;
 pub mod lunar;
 pub mod mean;
 pub mod parallacticangle;
