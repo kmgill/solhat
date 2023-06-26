@@ -53,7 +53,6 @@ fn load_frame_records_for_ser(ser_file: &SerFile, number_of_frames: usize) -> Ve
     };
 
     (0..frame_count)
-        .into_iter()
         .map(|i| FrameRecord {
             source_file_id: ser_file.source_file.to_string(),
             frame_id: i,

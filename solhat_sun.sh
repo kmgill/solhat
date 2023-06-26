@@ -259,15 +259,13 @@ $SOLHAT_BIN process -i $DATAROOT/$CHROME_ROOT/*/*ser \
                 -T sun \
                 -u $DRIZZLE_SCALE \
                 $HOTPIXEL_PARAM
-               ## -m $MASKROOT/Sun_Chromosphere_1200x1200_v2.png
  
 echo "Creating Limb Darkening Corrected Image..."
-$SOLHAT_BIN ld-correct -i \ 
+$SOLHAT_BIN ld-correct -i \
                     $DATAROOT/Sun_Chrome_${DATA_TS}${VERSION}.tif \
                     -r 770 \
                     -l 0.56 \
                     -m 10 \
-                    -I \
                     -o $DATAROOT/Sun_Chrome_${DATA_TS}_ldcorrected${VERSION}.tif
 
 # echo "Creating Invert Composited Image..."
