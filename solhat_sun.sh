@@ -44,7 +44,7 @@ BIT_DEPTH=`$SOLHAT_BIN ser-info -i $check_file | grep "Pixel Depth" | cut -d ' '
 
 # INITIAL_ROTATION=`$SOLHAT_BIN frame-stats -i $check_file  -l $LOC_LATITUDE -L $LOC_LONGITUDE 2> /dev/null | head -n 2 | tail -n 1 | tr -s ' '  | cut -d ' ' -f 6`
 
-FRAME_LIMIT=100
+FRAME_LIMIT=5000
 
 export MARS_OUTPUT_FORMAT=tif
 
