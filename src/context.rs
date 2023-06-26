@@ -7,6 +7,7 @@ use anyhow::Result;
 
 #[derive(Debug, Clone)]
 pub struct ProcessParameters {
+    pub input_files: Vec<String>,
     pub obj_detection_threshold: f64,
     pub obs_latitude: f64,
     pub obs_longitude: f64,
@@ -43,7 +44,7 @@ impl ProcessContext {
         master_dark: CalibrationImage,
         master_bias: CalibrationImage,
     ) -> Result<Self> {
-        Ok(ProcessContext {
+        let mut pc = ProcessContext {
             parameters: params.to_owned(),
             fp_map: FpMap::new(),
             master_flat: master_flat,
@@ -51,6 +52,13 @@ impl ProcessContext {
             master_darkflat: master_dark,
             master_bias: master_bias,
             stats: ProcessStats::default(),
-        })
+        };
+
+        params.input_files.iter().for_each(|input_file| {
+            pc.fp_map
+                .open(input_file)
+                .expect("Failed to open input file");
+        });
+        Ok(pc)
     }
 }

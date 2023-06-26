@@ -114,6 +114,7 @@ impl RunnableSubcommand for Process {
 
         let context = ProcessContext::create_with_calibration_frames(
             &ProcessParameters {
+                input_files: self.input_files.clone(),
                 obj_detection_threshold: self.threshold.unwrap_or(5000.0),
                 obs_latitude: self.latitude,
                 obs_longitude: self.longitude,
