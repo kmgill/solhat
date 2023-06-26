@@ -140,7 +140,7 @@ impl BilinearDrizzle {
     pub fn add_with_transform(
         &mut self,
         other: &Image,
-        offset: Offset,
+        offset: &Offset,
         rotation: f64,
     ) -> Result<()> {
         info!(

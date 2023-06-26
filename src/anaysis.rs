@@ -4,10 +4,13 @@ use anyhow::Result;
 use rayon::prelude::*;
 use sciimg::quality;
 
-pub fn frame_sigma_analysis<F: Fn(&FrameRecord)>(
+pub fn frame_sigma_analysis<F>(
     context: &ProcessContext,
-    _on_frame_checked: F,
-) -> Result<Vec<FrameRecord>> {
+    on_frame_checked: F,
+) -> Result<Vec<FrameRecord>>
+where
+    F: Fn(&FrameRecord) + Send + Sync + 'static,
+{
     let frame_records: Vec<FrameRecord> = context
         .frame_records
         .par_iter()
@@ -15,7 +18,7 @@ pub fn frame_sigma_analysis<F: Fn(&FrameRecord)>(
             let mut fr_copy = fr.clone();
             let frame = fr.get_frame(context).expect("");
             fr_copy.sigma = quality::get_quality_estimation(&frame.buffer) as f64;
-            // on_frame_checked(&fr_copy);
+            on_frame_checked(&fr_copy);
             fr_copy
         })
         .collect();

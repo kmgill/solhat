@@ -559,9 +559,9 @@ checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
 name = "half"
-version = "2.3.0"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9906a89f1724975a455316ae0554ceaa45ad83bb336f1125a87bfbdb9197cfa0"
+checksum = "bc52e53916c08643f1b56ec082790d1e86a32e58dc5268f897f313fbae7b4872"
 dependencies = [
  "cfg-if",
  "crunchy",
@@ -1260,7 +1260,7 @@ dependencies = [
 [[package]]
 name = "sciimg"
 version = "0.5.0"
-source = "git+https://github.com/MarsRaw/sciimg.git?branch=kmgill_develop#e03b1a9218c425747548fc81deb9cf6a0dfd1ed8"
+source = "git+https://github.com/MarsRaw/sciimg.git?branch=kmgill_develop#d63712bfc68298ca54a04a8ffb96f7e087f32ca2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1380,6 +1380,7 @@ dependencies = [
  "image",
  "imageproc",
  "indicatif",
+ "itertools",
  "lazy_static",
  "memmap",
  "num_cpus",

@@ -1,14 +1,16 @@
 use crate::subs::runnable::RunnableSubcommand;
 use anyhow::Result;
 use clap::Parser;
-use sciimg::prelude::*;
 use solhat::anaysis::frame_sigma_analysis;
 use solhat::calibrationframe::CalibrationImage;
+use solhat::calibrationframe::ComputeMethod;
 use solhat::context::*;
 use solhat::drizzle::Scale;
 use solhat::limiting::frame_limit_determinate;
+use solhat::offsetting::frame_offset_analysis;
+use solhat::rotation::frame_rotation_analysis;
+use solhat::stacking::process_frame_stacking;
 use solhat::target::Target;
-use std::process;
 
 pb_create!();
 
@@ -90,30 +92,33 @@ pub struct Process {
 #[async_trait::async_trait]
 impl RunnableSubcommand for Process {
     async fn run(&self) -> Result<()> {
+        pb_set_print!();
+
         let master_flat = if let Some(inputs) = &self.flat {
-            CalibrationImage::new_from_file(inputs)?
+            CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
         } else {
             CalibrationImage::new_empty()
         };
 
         let master_darkflat = if let Some(inputs) = &self.darkflat {
-            CalibrationImage::new_from_file(inputs)?
+            CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
         } else {
             CalibrationImage::new_empty()
         };
 
         let master_dark = if let Some(inputs) = &self.dark {
-            CalibrationImage::new_from_file(inputs)?
+            CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
         } else {
             CalibrationImage::new_empty()
         };
 
         let master_bias = if let Some(inputs) = &self.bias {
-            CalibrationImage::new_from_file(inputs)?
+            CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
         } else {
             CalibrationImage::new_empty()
         };
 
+        info!("Creating process context...");
         let mut context = ProcessContext::create_with_calibration_frames(
             &ProcessParameters {
                 input_files: self.input_files.clone(),
@@ -141,10 +146,102 @@ impl RunnableSubcommand for Process {
         )?;
 
         // Calculate frame sigmas (quality)
-        context.frame_records = frame_sigma_analysis(&context, |_fr| {})?;
+        info!("Calculating frame sigma");
+        pb_set_prefix!("Calculating Frame Sigma");
+        pb_set_length!(context.frame_records.len());
+        context.frame_records = frame_sigma_analysis(&context, |_fr| {
+            pb_inc!();
+        })?;
 
         // Limit frames based on rules.
-        context.frame_records = frame_limit_determinate(&context, |_fr| {})?;
+        info!("Applying frame limits");
+        pb_zero!();
+        pb_set_prefix!("Applying Frame Limits");
+        pb_set_length!(context.frame_records.len());
+        context.frame_records = frame_limit_determinate(&context, |_fr| {
+            pb_inc!();
+        })?;
+
+        // Compute parallactic angle rotations
+        info!("Computing parallactic angle rotations");
+        pb_zero!();
+        pb_set_prefix!("Computing Parallactic Angle Frame Rotations");
+        pb_set_length!(context.frame_records.len());
+        context.frame_records = frame_rotation_analysis(&context, |fr| {
+            info!(
+                "Rotation for frame is {} degrees",
+                fr.computed_rotation.to_degrees()
+            );
+            pb_inc!();
+        })?;
+
+        // Compute center-of-mass offsets for each frame
+        info!("Computing center-of-mass offsets for frames");
+        pb_zero!();
+        pb_set_prefix!("Computing Center-of-Mass Offsets for Frames");
+        pb_set_length!(context.frame_records.len());
+        context.frame_records = frame_offset_analysis(&context, |_fr| {
+            pb_inc!();
+        })?;
+
+        if context.frame_records.is_empty() {
+            println!("Zero frames to stack. Cannot continue");
+        } else {
+            // Stacking
+            info!("Stacking");
+            pb_zero!();
+            pb_set_prefix!("Stacking Frames");
+            pb_set_length!(context.frame_records.len());
+            let drizzle_output = process_frame_stacking(&context, |_fr| {
+                pb_inc!();
+            })?;
+
+            info!("Finalizing and saving");
+            let mut stacked_buffer = drizzle_output.get_finalized().unwrap();
+
+            // Zero would indicate that the user did not ask for cropping since that's not a valid crop dimension anyway
+            let crop_width = context.parameters.crop_width.unwrap_or(0);
+            let crop_height = context.parameters.crop_height.unwrap_or(0);
+
+            if crop_width > 0
+                && crop_height > 0
+                && crop_width <= stacked_buffer.width
+                && crop_height <= stacked_buffer.height
+            {
+                // Scale the crop up by the drizzle scale factor
+                let crop_width =
+                    (crop_width as f32 * context.parameters.drizzle_scale.value()).round() as usize;
+                let crop_height = (crop_height as f32 * context.parameters.drizzle_scale.value())
+                    .round() as usize;
+
+                info!(
+                    "Cropping image to width/height: {} / {}",
+                    crop_width, crop_height,
+                );
+                let x = (stacked_buffer.width - crop_width) / 2;
+                let y = (stacked_buffer.height - crop_height) / 2;
+                stacked_buffer.crop(x, y, crop_width, crop_height);
+            }
+
+            // Let the user know some stuff...
+            let (stackmin, stackmax) = stacked_buffer.get_min_max_all_channel();
+            info!(
+                "    Stack Min/Max : {}, {} ({} images)",
+                stackmin,
+                stackmax,
+                context.frame_records.len()
+            );
+            stacked_buffer.normalize_to_16bit();
+            info!(
+                "Final image size: {}, {}",
+                stacked_buffer.width, stacked_buffer.height
+            );
+
+            // Save finalized image to disk
+            stacked_buffer.save(&self.output)?;
+        }
+
+        pb_done!();
         Ok(())
     }
 }

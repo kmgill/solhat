@@ -38,16 +38,15 @@ impl Target {
         let (altitude, azimuth) = match self {
             Target::Moon => {
                 info!("Calculating position for Moon");
-                lunar::position_from_lat_lon_and_time(obs_latitude as f64, obs_longitude as f64, ts)
+                lunar::position_from_lat_lon_and_time(obs_latitude, obs_longitude, ts)
             }
             Target::Sun => {
                 info!("Calculating position for Sun");
-                solar::position_from_lat_lon_and_time(obs_latitude as f64, obs_longitude as f64, ts)
+                solar::position_from_lat_lon_and_time(obs_latitude, obs_longitude, ts)
             }
         };
 
-        let rotation =
-            parallacticangle::from_lat_azimuth_altitude(obs_latitude as f64, azimuth, altitude);
+        let rotation = parallacticangle::from_lat_azimuth_altitude(obs_latitude, azimuth, altitude);
 
         Ok(TargetPosition {
             rotation,

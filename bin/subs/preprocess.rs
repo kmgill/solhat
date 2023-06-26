@@ -1,12 +1,12 @@
 use crate::subs::runnable::RunnableSubcommand;
 use anyhow::Result;
 use clap::Parser;
-use sciimg::prelude::*;
+// use sciimg::prelude::*;
 use solhat::calibrationframe::CalibrationImage;
+use solhat::calibrationframe::ComputeMethod;
 use solhat::context::*;
 use solhat::drizzle::Scale;
 use solhat::target::Target;
-use std::process;
 
 pb_create!();
 
@@ -85,31 +85,33 @@ pub struct PreProcess {
 #[async_trait::async_trait]
 impl RunnableSubcommand for PreProcess {
     async fn run(&self) -> Result<()> {
+        pb_set_print!();
+
         let master_flat = if let Some(inputs) = &self.flat {
-            CalibrationImage::new_from_file(inputs)?
+            CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
         } else {
             CalibrationImage::new_empty()
         };
 
         let master_darkflat = if let Some(inputs) = &self.darkflat {
-            CalibrationImage::new_from_file(inputs)?
+            CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
         } else {
             CalibrationImage::new_empty()
         };
 
         let master_dark = if let Some(inputs) = &self.dark {
-            CalibrationImage::new_from_file(inputs)?
+            CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
         } else {
             CalibrationImage::new_empty()
         };
 
         let master_bias = if let Some(inputs) = &self.bias {
-            CalibrationImage::new_from_file(inputs)?
+            CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
         } else {
             CalibrationImage::new_empty()
         };
 
-        let context = ProcessContext::create_with_calibration_frames(
+        let _context = ProcessContext::create_with_calibration_frames(
             &ProcessParameters {
                 input_files: self.input_files.clone(),
                 obj_detection_threshold: self.threshold.unwrap_or(5000.0),
@@ -134,6 +136,7 @@ impl RunnableSubcommand for PreProcess {
             master_dark,
             master_bias,
         )?;
+        pb_done!();
         Ok(())
     }
 }

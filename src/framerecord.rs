@@ -2,16 +2,20 @@ use std::cmp::Ordering;
 
 use crate::context::ProcessContext;
 use crate::ser::SerFrame;
-use crate::target::Target;
 use crate::target::TargetPosition;
 use crate::timestamp::TimeStamp;
 use anyhow::Result;
+use sciimg::imagebuffer::Offset;
 
 #[derive(Debug, Clone)]
 pub struct FrameRecord {
-    pub source_file_id: String,
-    pub frame_id: usize,
-    pub sigma: f64,
+    pub source_file_id: String, // The input filename of the ser file
+    pub frame_id: usize,        // The index of the frame within the ser file
+    pub frame_width: usize,     // The width, in pixels, of the frame
+    pub frame_height: usize,    // The height, in pixels, of the frame
+    pub sigma: f64,             // The computed quality (sigma) value of the raw image
+    pub computed_rotation: f64, // The parallactic angle of rotation, in radians
+    pub offset: Offset,         // The center-of-mass offset needed to center the target
 }
 
 impl FrameRecord {
@@ -42,15 +46,13 @@ impl FrameRecord {
         Ok(frame_buffer.timestamp)
     }
 
-    pub fn get_rotation_for_time(
-        &self,
-        target: Target,
-        obs_latitude: f64,
-        obs_longitude: f64,
-        context: &ProcessContext,
-    ) -> Result<TargetPosition> {
+    pub fn get_rotation_for_time(&self, context: &ProcessContext) -> Result<TargetPosition> {
         let ts = self.get_timestamp(context)?;
-        target.position_from_lat_lon_and_time(obs_latitude, obs_longitude, &ts)
+        context.parameters.target.position_from_lat_lon_and_time(
+            context.parameters.obs_latitude,
+            context.parameters.obs_longitude,
+            &ts,
+        )
     }
 }
 

@@ -4,11 +4,21 @@ pub mod runnable;
 #[macro_export]
 macro_rules! pb_create {
     () => {
-        use indicatif::ProgressBar;
+        use indicatif::{ProgressBar, ProgressStyle};
         use lazy_static::lazy_static;
 
         lazy_static! {
-            static ref PB: ProgressBar = ProgressBar::new(1);
+            static ref PB: ProgressBar = {
+                let pb = ProgressBar::new(1);
+                pb.set_style(
+                    ProgressStyle::with_template(
+                        "{prefix:.bold.dim} [{wide_bar:.cyan/blue}] {pos:>7}/{len:7}",
+                    )
+                    .unwrap()
+                    .progress_chars("#>-"),
+                );
+                pb
+            };
         }
     };
 }
@@ -111,6 +121,13 @@ macro_rules! pb_println {
     };
 }
 
+#[macro_export]
+macro_rules! pb_set_prefix {
+    ($prefix: expr) => {
+        PB.set_prefix($prefix);
+    };
+}
+
 /// Finishes the spinner with a 'Done' message
 #[macro_export]
 macro_rules! pb_done {
@@ -127,5 +144,9 @@ macro_rules! pb_done_with_error {
     };
 }
 
+pub mod mean;
+pub mod median;
 pub mod preprocess;
 pub mod process;
+pub mod serinfo;
+pub mod threshtest;

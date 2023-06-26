@@ -7,6 +7,7 @@ use crate::stats::ProcessStats;
 use crate::target::Target;
 use anyhow::Result;
 use rayon::prelude::*;
+use sciimg::imagebuffer::Offset;
 
 #[derive(Debug, Clone)]
 pub struct ProcessParameters {
@@ -46,12 +47,17 @@ fn load_frame_records_for_ser(ser_file: &SerFile, number_of_frames: usize) -> Ve
     } else {
         ser_file.frame_count
     };
+
     (0..frame_count)
-        .into_par_iter()
+        .into_iter()
         .map(|i| FrameRecord {
             source_file_id: ser_file.source_file.to_string(),
             frame_id: i,
+            frame_width: ser_file.image_width,
+            frame_height: ser_file.image_height,
             sigma: 0.0,
+            computed_rotation: 0.0,
+            offset: Offset { h: 0.0, v: 0.0 },
         })
         .collect::<Vec<FrameRecord>>()
 }
@@ -67,15 +73,16 @@ impl ProcessContext {
         let mut pc = ProcessContext {
             parameters: params.to_owned(),
             fp_map: FpMap::new(),
-            master_flat: master_flat,
-            master_dark: master_darkflat,
-            master_darkflat: master_dark,
-            master_bias: master_bias,
+            master_flat,
+            master_dark,
+            master_darkflat,
+            master_bias,
             stats: ProcessStats::default(),
             frame_records: vec![],
         };
 
         params.input_files.iter().for_each(|input_file| {
+            info!("Loading input file: {}", input_file);
             pc.fp_map
                 .open(input_file)
                 .expect("Failed to open input file");
@@ -85,9 +92,7 @@ impl ProcessContext {
             .fp_map
             .get_map()
             .par_iter()
-            .map(|(_, ser)| {
-                load_frame_records_for_ser(&ser, params.max_frames.unwrap_or(100000000))
-            })
+            .map(|(_, ser)| load_frame_records_for_ser(ser, params.max_frames.unwrap_or(100000000)))
             .collect::<Vec<Vec<FrameRecord>>>()
             .iter()
             .flatten()

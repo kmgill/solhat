@@ -25,6 +25,10 @@ struct Cli {
 enum SolHat {
     Process(process::Process),
     PreProcess(preprocess::PreProcess),
+    Mean(mean::Mean),
+    Median(median::Median),
+    ThreshTest(threshtest::ThreshTest),
+    SerInfo(serinfo::SerInfo),
 }
 
 #[tokio::main]
@@ -45,6 +49,10 @@ async fn main() -> Result<(), anyhow::Error> {
     if let Err(why) = match args.command {
         SolHat::Process(args) => args.run().await,
         SolHat::PreProcess(args) => args.run().await,
+        SolHat::Mean(args) => args.run().await,
+        SolHat::Median(args) => args.run().await,
+        SolHat::ThreshTest(args) => args.run().await,
+        SolHat::SerInfo(args) => args.run().await,
     } {
         error!("{}", "Unhandled program error:".red());
         error!("{}", why);
