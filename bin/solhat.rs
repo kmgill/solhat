@@ -29,6 +29,7 @@ enum SolHat {
     Median(median::Median),
     ThreshTest(threshtest::ThreshTest),
     SerInfo(serinfo::SerInfo),
+    LdCorrect(ldcorrect::LdCorrect),
 }
 
 #[tokio::main]
@@ -53,6 +54,7 @@ async fn main() -> Result<(), anyhow::Error> {
         SolHat::Median(args) => args.run().await,
         SolHat::ThreshTest(args) => args.run().await,
         SolHat::SerInfo(args) => args.run().await,
+        SolHat::LdCorrect(args) => args.run().await,
     } {
         error!("{}", "Unhandled program error:".red());
         error!("{}", why);

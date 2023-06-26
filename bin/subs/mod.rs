@@ -144,6 +144,7 @@ macro_rules! pb_done_with_error {
     };
 }
 
+pub mod ldcorrect;
 pub mod mean;
 pub mod median;
 pub mod preprocess;
