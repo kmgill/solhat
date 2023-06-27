@@ -30,6 +30,7 @@ enum SolHat {
     ThreshTest(threshtest::ThreshTest),
     SerInfo(serinfo::SerInfo),
     LdCorrect(ldcorrect::LdCorrect),
+    Composite(composite::Composite),
 }
 
 #[tokio::main]
@@ -55,6 +56,7 @@ async fn main() -> Result<(), anyhow::Error> {
         SolHat::ThreshTest(args) => args.run().await,
         SolHat::SerInfo(args) => args.run().await,
         SolHat::LdCorrect(args) => args.run().await,
+        SolHat::Composite(args) => args.run().await,
     } {
         error!("{}", "Unhandled program error:".red());
         error!("{}", why);

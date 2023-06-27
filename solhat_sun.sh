@@ -38,6 +38,7 @@ CROP_WIDTH=1200
 CROP_HEIGHT=1200
 
 DRIZZLE_SCALE=1.5
+SUN_RADIUS=750
 
 check_file=`ls -1 $DATAROOT/$CHROME_ROOT/*/*ser | head -n 1`
 BIT_DEPTH=`$SOLHAT_BIN ser-info -i $check_file | grep "Pixel Depth" | cut -d ' ' -f 3`
@@ -120,10 +121,10 @@ echo Photosphere Top Percentage: $PHOTO_TOP_PCT
 echo Drizzle Upscale Amount: $DRIZZLE_SCALE
 
 echo
-echo Output Chromosphere: $DATAROOT/Sun_Chrome_${DATA_TS}${VERSION}.png
-echo Output Prominance: $DATAROOT/Sun_Prom_${DATA_TS}${VERSION}.png
-echo Output Composite: $DATAROOT/Sun_Composite_${DATA_TS}${VERSION}.png
-echo Output Photosphere: $DATAROOT/Sun_Photo_${DATA_TS}${VERSION}.png
+echo Output Chromosphere: $DATAROOT/Sun_Chrome_${DATA_TS}${VERSION}.tif
+echo Output Prominance: $DATAROOT/Sun_Prom_${DATA_TS}${VERSION}.tif
+echo Output Composite: $DATAROOT/Sun_Composite_${DATA_TS}${VERSION}.tif
+echo Output Photosphere: $DATAROOT/Sun_Photo_${DATA_TS}${VERSION}.tif
 
 echo
 echo Observation Latitude: $LOC_LATITUDE
@@ -263,14 +264,15 @@ $SOLHAT_BIN process -i $DATAROOT/$CHROME_ROOT/*/*ser \
 echo "Creating Limb Darkening Corrected Image..."
 $SOLHAT_BIN ld-correct -i \
                     $DATAROOT/Sun_Chrome_${DATA_TS}${VERSION}.tif \
-                    -r 770 \
+                    -r $SUN_RADIUS \
                     -l 0.56 \
                     -m 10 \
                     -o $DATAROOT/Sun_Chrome_${DATA_TS}_ldcorrected${VERSION}.tif
 
 # echo "Creating Invert Composited Image..."
-# solha -v composite -i $DATAROOT/Sun_Chrome_${DATA_TS}${VERSION}.png \
-#                     -r 770 \
+solha -v composite -i $DATAROOT/Sun_Chrome_${DATA_TS}${VERSION}.tif \
+                    -o $DATAROOT/Sun_Chrome_Composite_${DATA_TS}${VERSION}.tif \
+                    -r $SUN_RADIUS
 
 
 if [ $HAS_PROM -eq 1 ]; then
