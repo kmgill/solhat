@@ -1,9 +1,17 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+// use egui::panel::Side;
+// use egui::Image;
+// use egui::Vec2;
+// use egui_extras::Size;
+// use egui_extras::StripBuilder;
 use anyhow::{anyhow, Result};
 use eframe::egui;
 use egui::Pos2;
-// use egui::Vec2;
+use egui_extras::RetainedImage;
+use epaint::image::ColorImage;
+use epaint::Vec2;
+use itertools::iproduct;
 use serde::{Deserialize, Serialize};
 use solhat::anaysis::frame_sigma_analysis;
 use solhat::calibrationframe::CalibrationImage;
@@ -13,6 +21,8 @@ use solhat::drizzle::Scale;
 use solhat::limiting::frame_limit_determinate;
 use solhat::offsetting::frame_offset_analysis;
 use solhat::rotation::frame_rotation_analysis;
+use solhat::ser::SerFile;
+use solhat::ser::SerFrame;
 use solhat::stacking::process_frame_stacking;
 use solhat::target::Target;
 use std::fs;
@@ -73,6 +83,57 @@ struct WindowState {
     theme: String,
 }
 
+#[derive(Deserialize, Serialize)]
+struct SolHat {
+    light: Option<String>,
+    dark: Option<String>,
+    flat: Option<String>,
+    darkflat: Option<String>,
+    bias: Option<String>,
+    hot_pixel_map: Option<String>,
+    output_dir: Option<String>,
+    freetext: String,
+    obs_latitude: f64,
+    obs_longitude: f64,
+    target: Target,
+    obj_detection_threshold: f64,
+    drizzle_scale: Scale,
+    max_frames: usize,
+    min_sigma: f64,
+    max_sigma: f64,
+    top_percentage: f64,
+    state: WindowState,
+
+    #[serde(skip_serializing, skip_deserializing)]
+    thumbnail_main: Option<RetainedImage>,
+}
+
+fn ser_frame_to_retained_image(ser_frame: &SerFrame) -> RetainedImage {
+    let mut copied = ser_frame.buffer.clone();
+    let size: [usize; 2] = [copied.width as _, copied.height as _];
+    copied.normalize_to_8bit();
+    let mut rgb: Vec<u8> = Vec::with_capacity(copied.height * copied.width * 3);
+    iproduct!(0..copied.height, 0..copied.width).for_each(|(y, x)| {
+        let (r, g, b) = if copied.num_bands() == 1 {
+            (
+                copied.get_band(0).get(x, y),
+                copied.get_band(0).get(x, y),
+                copied.get_band(0).get(x, y),
+            )
+        } else {
+            (
+                copied.get_band(0).get(x, y),
+                copied.get_band(1).get(x, y),
+                copied.get_band(2).get(x, y),
+            )
+        };
+        rgb.push(r as u8);
+        rgb.push(g as u8);
+        rgb.push(b as u8);
+    });
+    RetainedImage::from_color_image("thumbnail_main", ColorImage::from_rgb(size, &rgb))
+}
+
 impl WindowState {
     pub fn get_last_opened_folder(&self) -> PathBuf {
         if self.last_opened_folder.is_some() {
@@ -111,6 +172,8 @@ async fn main() -> Result<(), eframe::Error> {
 
     let mut options = eframe::NativeOptions {
         icon_data: Some(load_icon()),
+        initial_window_size: Some(Vec2 { x: 885.0, y: 650.0 }),
+        min_window_size: Some(Vec2 { x: 885.0, y: 650.0 }),
         ..Default::default()
     };
 
@@ -136,28 +199,6 @@ async fn main() -> Result<(), eframe::Error> {
     eframe::run_native("SolHat", options, Box::new(|_cc| solhat))
 }
 
-#[derive(Deserialize, Serialize)]
-struct SolHat {
-    light: Option<String>,
-    dark: Option<String>,
-    flat: Option<String>,
-    darkflat: Option<String>,
-    bias: Option<String>,
-    hot_pixel_map: Option<String>,
-    output_dir: Option<String>,
-    freetext: String,
-    obs_latitude: f64,
-    obs_longitude: f64,
-    target: Target,
-    obj_detection_threshold: f64,
-    drizzle_scale: Scale,
-    max_frames: usize,
-    min_sigma: f64,
-    max_sigma: f64,
-    top_percentage: f64,
-    state: WindowState,
-}
-
 impl Default for SolHat {
     fn default() -> Self {
         Self {
@@ -179,6 +220,7 @@ impl Default for SolHat {
             max_sigma: 1000.0,
             top_percentage: 100.0,
             state: WindowState::default(),
+            thumbnail_main: None,
         }
     }
 }
@@ -271,7 +313,21 @@ impl SolHat {
         }
     }
 
+    #[allow(dead_code)]
+    fn load_thumbnail(&mut self, force: bool) {
+        if let Some(light_path) = &self.light {
+            if self.thumbnail_main.is_none() || force {
+                let ser_file = SerFile::load_ser(light_path).unwrap();
+                let first_image = ser_file.get_frame(0).unwrap();
+                self.thumbnail_main = Some(ser_frame_to_retained_image(&first_image));
+            }
+        } else {
+            self.thumbnail_main = None;
+        }
+    }
+
     fn on_update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        // self.load_thumbnail(false);
         self.enforce_value_bounds();
         self.state.update_from_window_info(ctx, frame);
 
@@ -358,6 +414,18 @@ impl SolHat {
                 ui.hyperlink("https://github.com/kmgill/solhat");
             });
         });
+
+        // egui::SidePanel::new(Side::Right, "thumbnail-main")
+        //     .resizable(false)
+        //     .exact_width(500.0)
+        //     .show(ctx, |ui| {
+        //         if let Some(thumb) = &self.thumbnail_main {
+        //             ui.add(
+        //                 egui::Image::new(thumb.texture_id(ctx), thumb.size_vec2())
+        //                     .rotate(45.0_f32.to_radians(), egui::Vec2::splat(0.5)),
+        //             );
+        //         }
+        //     });
     }
 
     fn outputs_frame_contents(&mut self, ui: &mut egui::Ui) {
@@ -381,6 +449,16 @@ impl SolHat {
         }
     }
 
+    fn truncate_to(s: &str, max_len: usize) -> String {
+        if s.len() < max_len {
+            s.to_owned()
+        } else {
+            let t: String = "...".to_owned() + &s[(s.len() - max_len + 3)..];
+            // let t: String = s[0..(max_len - 3)].to_owned() + "...";
+            t
+        }
+    }
+
     fn inputs_frame_contents(&mut self, ui: &mut egui::Ui) {
         egui::Grid::new("inputs_3x3_lights")
             .num_columns(4)
@@ -389,7 +467,10 @@ impl SolHat {
             .show(ui, |ui| {
                 // Light Frames
                 ui.label("Light:");
-                ui.monospace(&self.light.clone().unwrap_or("".to_owned()));
+                ui.monospace(&SolHat::truncate_to(
+                    &self.light.clone().unwrap_or("".to_owned()),
+                    80,
+                ));
                 if ui.button("Open file…").clicked() {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Light")
@@ -399,6 +480,7 @@ impl SolHat {
                     {
                         self.light = Some(path.display().to_string());
                         self.state.update_last_opened_folder(&path);
+                        // self.load_thumbnail(true);
                         // If the output directory isn't yet set, we'll set
                         // it as the parent directory containing the file selected here.
                         if self.output_dir.is_none() {
@@ -413,7 +495,10 @@ impl SolHat {
 
                 // Darks
                 ui.label("Dark:");
-                ui.monospace(&self.dark.clone().unwrap_or("".to_owned()));
+                ui.monospace(&SolHat::truncate_to(
+                    &self.dark.clone().unwrap_or("".to_owned()),
+                    80,
+                ));
                 if ui.button("Open file…").clicked() {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Dark")
@@ -432,7 +517,10 @@ impl SolHat {
 
                 // Flats
                 ui.label("Flat:");
-                ui.monospace(&self.flat.clone().unwrap_or("".to_owned()));
+                ui.monospace(&SolHat::truncate_to(
+                    &self.flat.clone().unwrap_or("".to_owned()),
+                    80,
+                ));
                 if ui.button("Open file…").clicked() {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Flat")
@@ -451,7 +539,10 @@ impl SolHat {
 
                 // Dark Flat
                 ui.label("Dark Flat:");
-                ui.monospace(&self.darkflat.clone().unwrap_or("".to_owned()));
+                ui.monospace(&SolHat::truncate_to(
+                    &self.darkflat.clone().unwrap_or("".to_owned()),
+                    80,
+                ));
                 if ui.button("Open file…").clicked() {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Dark Flat")
@@ -470,7 +561,10 @@ impl SolHat {
 
                 // Bias
                 ui.label("Bias:");
-                ui.monospace(&self.bias.clone().unwrap_or("".to_owned()));
+                ui.monospace(&SolHat::truncate_to(
+                    &self.bias.clone().unwrap_or("".to_owned()),
+                    80,
+                ));
                 if ui.button("Open file…").clicked() {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Bias")
@@ -489,7 +583,10 @@ impl SolHat {
 
                 // Hot Pixel Map
                 ui.label("Hot Pixel map:");
-                ui.monospace(&self.hot_pixel_map.clone().unwrap_or("".to_owned()));
+                ui.monospace(&SolHat::truncate_to(
+                    &self.hot_pixel_map.clone().unwrap_or("".to_owned()),
+                    80,
+                ));
                 if ui.button("Open file…").clicked() {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Hot Pixel Map")
@@ -529,6 +626,7 @@ impl SolHat {
             max_sigma: _,
             top_percentage: _,
             state: _,
+            thumbnail_main: _,
         } = self;
 
         ui.label("Observer Latitude:");
@@ -577,6 +675,7 @@ impl SolHat {
             obj_detection_threshold,
             top_percentage,
             state: _,
+            thumbnail_main: _,
         } = self;
 
         ui.label("Object Detection Threshold:");
@@ -628,7 +727,7 @@ impl SolHat {
             return Err(anyhow!("Input light file not provided"));
         };
 
-        let freetext = if self.freetext.is_empty() {
+        let freetext = if !self.freetext.is_empty() {
             format!("_{}", self.freetext)
         } else {
             "".to_owned()
