@@ -2,6 +2,9 @@
 
 use anyhow::{anyhow, Result};
 use eframe::egui;
+use egui::Pos2;
+use egui::Vec2;
+use serde::{Deserialize, Serialize};
 use solhat::anaysis::frame_sigma_analysis;
 use solhat::calibrationframe::CalibrationImage;
 use solhat::calibrationframe::ComputeMethod;
@@ -12,6 +15,9 @@ use solhat::offsetting::frame_offset_analysis;
 use solhat::rotation::frame_rotation_analysis;
 use solhat::stacking::process_frame_stacking;
 use solhat::target::Target;
+use std::fs;
+use std::fs::File;
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -42,18 +48,6 @@ pub(crate) fn load_icon() -> eframe::IconData {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), eframe::Error> {
-    stump::set_min_log_level(stump::LogEntryLevel::DEBUG);
-    info!("Starting SolHat-UI");
-    let options = eframe::NativeOptions {
-        icon_data: Some(load_icon()),
-        ..Default::default()
-    };
-
-    eframe::run_native("SolHat", options, Box::new(|_cc| Box::<SolHat>::default()))
-}
-
 enum TaskStatus {
     TaskPercentage(String, usize, usize),
 }
@@ -68,6 +62,79 @@ lazy_static! {
         Arc::new(Mutex::new(TaskStatusContainer::default()));
 }
 
+#[derive(Default, Deserialize, Serialize)]
+struct WindowState {
+    last_opened_folder: Option<PathBuf>,
+    window_pos_x: usize,
+    window_pos_y: usize,
+    window_width: usize,
+    window_height: usize,
+    fullscreen: bool,
+    theme: String,
+}
+
+impl WindowState {
+    pub fn get_last_opened_folder(&self) -> PathBuf {
+        if self.last_opened_folder.is_some() {
+            self.last_opened_folder.to_owned().unwrap()
+        } else {
+            std::env::current_dir().unwrap()
+        }
+    }
+
+    pub fn update_last_opened_folder(&mut self, path: &Path) {
+        info!("Last opened path: {:?}", path);
+        self.last_opened_folder = if path.is_file() {
+            Some(path.parent().unwrap().to_path_buf())
+        } else {
+            Some(path.to_path_buf())
+        };
+    }
+
+    pub fn update_from_window_info(&mut self, _ctx: &egui::Context, frame: &mut eframe::Frame) {
+        let position = frame.info().window_info.position.unwrap();
+        self.window_pos_x = position.x as usize;
+        self.window_pos_y = position.y as usize;
+
+        let dimension = frame.info().window_info.size;
+        self.window_width = dimension.x as usize;
+        self.window_height = dimension.y as usize;
+
+        self.fullscreen = frame.info().window_info.fullscreen;
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), eframe::Error> {
+    stump::set_min_log_level(stump::LogEntryLevel::DEBUG);
+    info!("Starting SolHat-UI");
+
+    let mut options = eframe::NativeOptions {
+        icon_data: Some(load_icon()),
+        ..Default::default()
+    };
+
+    // If the config file (literally a serialized version of the last run window state) errors on read
+    // or doesn't exist, we'll just ignore it and start from scratch.
+    let solhat = if let Ok(solhat) = SolHat::load_from_userhome() {
+        options.initial_window_pos = Some(Pos2::new(
+            solhat.state.window_pos_x as f32,
+            solhat.state.window_pos_y as f32,
+        ));
+        options.initial_window_size = Some(Vec2::new(
+            solhat.state.window_width as f32,
+            solhat.state.window_height as f32,
+        ));
+        Box::new(solhat)
+    } else {
+        options.centered = true;
+        Box::<SolHat>::default()
+    };
+
+    eframe::run_native("SolHat", options, Box::new(|_cc| solhat))
+}
+
+#[derive(Deserialize, Serialize)]
 struct SolHat {
     light: Option<String>,
     dark: Option<String>,
@@ -86,7 +153,7 @@ struct SolHat {
     min_sigma: f64,
     max_sigma: f64,
     top_percentage: f64,
-    last_opened_folder: Option<PathBuf>,
+    state: WindowState,
 }
 
 impl Default for SolHat {
@@ -109,14 +176,102 @@ impl Default for SolHat {
             min_sigma: 0.0,
             max_sigma: 1000.0,
             top_percentage: 100.0,
-            last_opened_folder: None,
+            state: WindowState::default(),
         }
     }
 }
 
 impl eframe::App for SolHat {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn on_close_event(&mut self) -> bool {
+        self.save_to_userhome();
+        true
+    }
+
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.enforce_value_bounds();
+        self.state.update_from_window_info(ctx, frame);
+
+        // Force 1for1 pixel scale.
+        ctx.set_pixels_per_point(1.0);
+
+        self.on_update(ctx, frame);
+    }
+}
+
+impl SolHat {
+    pub fn load_from_userhome() -> Result<Self> {
+        let config_file_path = dirs::home_dir().unwrap().join(".solhat/config.toml");
+        if config_file_path.exists() {
+            info!(
+                "Window state config file exists at path: {:?}",
+                config_file_path
+            );
+            let t = std::fs::read_to_string(config_file_path)?;
+            Ok(toml::from_str(&t)?)
+        } else {
+            warn!("Window state config file does not exist. Will be created on exit");
+            Err(anyhow!("Config file does not exist"))
+        }
+    }
+
+    pub fn save_to_userhome(&self) {
+        let toml_str = toml::to_string(&self).unwrap();
+        let solhat_config_dir = dirs::home_dir().unwrap().join(".solhat/");
+        if !solhat_config_dir.exists() {
+            fs::create_dir(&solhat_config_dir).expect("Failed to create config directory");
+        }
+        let config_file_path = solhat_config_dir.join("config.toml");
+        let mut f = File::create(config_file_path).expect("Failed to create config file");
+        f.write_all(toml_str.as_bytes())
+            .expect("Failed to write to config file");
+        debug!("{}", toml_str);
+    }
+
+    fn enforce_value_bounds(&mut self) {
+        if self.obs_latitude > 90.0 {
+            self.obs_latitude = 90.0; // Hello North Pole!
+        } else if self.obs_latitude < -90.0 {
+            self.obs_latitude = -90.0; // Hello South Pole!
+        }
+
+        // Longitude -180 through 180 where -180 is west.
+        if self.obs_longitude > 180.0 {
+            self.obs_longitude = 180.0;
+        } else if self.obs_longitude < -180.0 {
+            self.obs_longitude = -180.0;
+        }
+
+        if self.top_percentage > 100.0 {
+            self.top_percentage = 100.0;
+        } else if self.top_percentage < 1.0 {
+            self.top_percentage = 1.0;
+        }
+
+        if self.obj_detection_threshold < 1.0 {
+            self.obj_detection_threshold = 1.0;
+        }
+
+        if self.min_sigma > self.max_sigma {
+            self.min_sigma = self.max_sigma; // Depends on which value is currently being modified
+        }
+
+        if self.max_sigma < self.min_sigma {
+            self.max_sigma = self.min_sigma; // Depends on which value is currently being modified,
+                                             // though max_sigma can drive down min_sigma to zero.
+        }
+
+        if self.min_sigma < 0.0 {
+            self.min_sigma = 0.0;
+        }
+
+        if self.max_sigma < 0.0 {
+            self.max_sigma = 0.0;
+        }
+    }
+
+    fn on_update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        self.enforce_value_bounds();
+        self.state.update_from_window_info(ctx, frame);
 
         // Force 1for1 pixel scale.
         ctx.set_pixels_per_point(1.0);
@@ -202,50 +357,6 @@ impl eframe::App for SolHat {
             });
         });
     }
-}
-
-impl SolHat {
-    fn enforce_value_bounds(&mut self) {
-        if self.obs_latitude > 90.0 {
-            self.obs_latitude = 90.0; // Hello North Pole!
-        } else if self.obs_latitude < -90.0 {
-            self.obs_latitude = -90.0; // Hello South Pole!
-        }
-
-        // Longitude -180 through 180 where -180 is west.
-        if self.obs_longitude > 180.0 {
-            self.obs_longitude = 180.0;
-        } else if self.obs_longitude < -180.0 {
-            self.obs_longitude = -180.0;
-        }
-
-        if self.top_percentage > 100.0 {
-            self.top_percentage = 100.0;
-        } else if self.top_percentage < 1.0 {
-            self.top_percentage = 1.0;
-        }
-
-        if self.obj_detection_threshold < 1.0 {
-            self.obj_detection_threshold = 1.0;
-        }
-
-        if self.min_sigma > self.max_sigma {
-            self.min_sigma = self.max_sigma; // Depends on which value is currently being modified
-        }
-
-        if self.max_sigma < self.min_sigma {
-            self.max_sigma = self.min_sigma; // Depends on which value is currently being modified,
-                                             // though max_sigma can drive down min_sigma to zero.
-        }
-
-        if self.min_sigma < 0.0 {
-            self.min_sigma = 0.0;
-        }
-
-        if self.max_sigma < 0.0 {
-            self.max_sigma = 0.0;
-        }
-    }
 
     fn outputs_frame_contents(&mut self, ui: &mut egui::Ui) {
         // Light Frames
@@ -268,26 +379,9 @@ impl SolHat {
         }
     }
 
-    fn get_last_opened_folder(&self) -> PathBuf {
-        if self.last_opened_folder.is_some() {
-            self.last_opened_folder.to_owned().unwrap()
-        } else {
-            std::env::current_dir().unwrap()
-        }
-    }
-
-    fn update_last_opened_folder(&mut self, path: &Path) {
-        info!("Last opened path: {:?}", path);
-        self.last_opened_folder = if path.is_file() {
-            Some(path.parent().unwrap().to_path_buf())
-        } else {
-            Some(path.to_path_buf())
-        };
-    }
-
     fn inputs_frame_contents(&mut self, ui: &mut egui::Ui) {
         egui::Grid::new("inputs_3x3_lights")
-            .num_columns(3)
+            .num_columns(4)
             .spacing([40.0, 4.0])
             .striped(true)
             .show(ui, |ui| {
@@ -297,18 +391,21 @@ impl SolHat {
                 if ui.button("Open file…").clicked() {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Light")
-                        .set_directory(self.get_last_opened_folder())
+                        .set_directory(self.state.get_last_opened_folder())
                         .add_filter("SER", &["ser"])
                         .pick_file()
                     {
                         self.light = Some(path.display().to_string());
-                        self.update_last_opened_folder(&path);
+                        self.state.update_last_opened_folder(&path);
                         // If the output directory isn't yet set, we'll set
                         // it as the parent directory containing the file selected here.
                         if self.output_dir.is_none() {
                             self.output_dir = Some(path.parent().unwrap().display().to_string())
                         }
                     }
+                }
+                if ui.button("Clear").clicked() {
+                    self.light = None;
                 }
                 ui.end_row();
 
@@ -318,13 +415,16 @@ impl SolHat {
                 if ui.button("Open file…").clicked() {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Dark")
-                        .set_directory(self.get_last_opened_folder())
+                        .set_directory(self.state.get_last_opened_folder())
                         .add_filter("SER", &["ser"])
                         .pick_file()
                     {
                         self.dark = Some(path.display().to_string());
-                        self.update_last_opened_folder(&path);
+                        self.state.update_last_opened_folder(&path);
                     }
+                }
+                if ui.button("Clear").clicked() {
+                    self.light = None;
                 }
                 ui.end_row();
 
@@ -334,13 +434,16 @@ impl SolHat {
                 if ui.button("Open file…").clicked() {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Flat")
-                        .set_directory(self.get_last_opened_folder())
+                        .set_directory(self.state.get_last_opened_folder())
                         .add_filter("SER", &["ser"])
                         .pick_file()
                     {
                         self.flat = Some(path.display().to_string());
-                        self.update_last_opened_folder(&path);
+                        self.state.update_last_opened_folder(&path);
                     }
+                }
+                if ui.button("Clear").clicked() {
+                    self.light = None;
                 }
                 ui.end_row();
 
@@ -350,13 +453,16 @@ impl SolHat {
                 if ui.button("Open file…").clicked() {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Dark Flat")
-                        .set_directory(self.get_last_opened_folder())
+                        .set_directory(self.state.get_last_opened_folder())
                         .add_filter("SER", &["ser"])
                         .pick_file()
                     {
                         self.darkflat = Some(path.display().to_string());
-                        self.update_last_opened_folder(&path);
+                        self.state.update_last_opened_folder(&path);
                     }
+                }
+                if ui.button("Clear").clicked() {
+                    self.light = None;
                 }
                 ui.end_row();
 
@@ -366,13 +472,16 @@ impl SolHat {
                 if ui.button("Open file…").clicked() {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Bias")
-                        .set_directory(self.get_last_opened_folder())
+                        .set_directory(self.state.get_last_opened_folder())
                         .add_filter("SER", &["ser"])
                         .pick_file()
                     {
                         self.bias = Some(path.display().to_string());
-                        self.update_last_opened_folder(&path);
+                        self.state.update_last_opened_folder(&path);
                     }
+                }
+                if ui.button("Clear").clicked() {
+                    self.light = None;
                 }
                 ui.end_row();
 
@@ -382,13 +491,16 @@ impl SolHat {
                 if ui.button("Open file…").clicked() {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Hot Pixel Map")
-                        .set_directory(self.get_last_opened_folder())
+                        .set_directory(self.state.get_last_opened_folder())
                         .add_filter("toml", &["toml"])
                         .pick_file()
                     {
                         self.hot_pixel_map = Some(path.display().to_string());
-                        self.update_last_opened_folder(&path);
+                        self.state.update_last_opened_folder(&path);
                     }
+                }
+                if ui.button("Clear").clicked() {
+                    self.light = None;
                 }
                 ui.end_row();
             });
@@ -414,7 +526,7 @@ impl SolHat {
             min_sigma: _,
             max_sigma: _,
             top_percentage: _,
-            last_opened_folder: _,
+            state: _,
         } = self;
 
         ui.label("Observer Latitude:");
@@ -426,14 +538,10 @@ impl SolHat {
         ui.end_row();
 
         ui.label("Target:");
-        egui::ComboBox::from_label("Target")
-            .selected_text(format!("{:?}", target))
-            .show_ui(ui, |ui| {
-                ui.style_mut().wrap = Some(false);
-                ui.set_min_width(60.0);
-                ui.selectable_value(target, Target::Sun, "Sun");
-                ui.selectable_value(target, Target::Moon, "Moon");
-            });
+        ui.horizontal(|ui| {
+            ui.selectable_value(target, Target::Sun, "Sun");
+            ui.selectable_value(target, Target::Moon, "Moon");
+        });
         ui.end_row();
     }
 
@@ -456,7 +564,7 @@ impl SolHat {
             max_sigma,
             obj_detection_threshold,
             top_percentage,
-            last_opened_folder: _,
+            state: _,
         } = self;
 
         ui.label("Object Detection Threshold:");
@@ -464,16 +572,12 @@ impl SolHat {
         ui.end_row();
 
         ui.label("Drizzle:");
-        egui::ComboBox::from_label("Drizzle")
-            .selected_text(format!("{:?}", drizzle_scale))
-            .show_ui(ui, |ui| {
-                ui.style_mut().wrap = Some(false);
-                ui.set_min_width(60.0);
-                ui.selectable_value(drizzle_scale, Scale::Scale1_0, "None");
-                ui.selectable_value(drizzle_scale, Scale::Scale1_5, "1.5x");
-                ui.selectable_value(drizzle_scale, Scale::Scale2_0, "2.0x");
-                ui.selectable_value(drizzle_scale, Scale::Scale3_0, "3.0x");
-            });
+        ui.horizontal(|ui| {
+            ui.selectable_value(drizzle_scale, Scale::Scale1_0, "None");
+            ui.selectable_value(drizzle_scale, Scale::Scale1_5, "1.5x");
+            ui.selectable_value(drizzle_scale, Scale::Scale2_0, "2.0x");
+            ui.selectable_value(drizzle_scale, Scale::Scale3_0, "3.0x");
+        });
         ui.end_row();
 
         ui.label("Use Maximum Frames:");
