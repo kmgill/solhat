@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::point::Point;
 use anyhow::{anyhow, Result};
 use sciimg::imagebuffer::Offset;
@@ -42,13 +44,15 @@ impl Scale {
             )),
         }
     }
+}
 
-    pub fn to_string(&self) -> String {
+impl Display for Scale {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Scale::Scale1_0 => "".to_owned(),
-            Scale::Scale1_5 => "Drizzle15".to_owned(),
-            Scale::Scale2_0 => "Drizzle20".to_owned(),
-            Scale::Scale3_0 => "Drizzle30".to_owned(),
+            Scale::Scale1_0 => write!(f, "Drizzle x1"),
+            Scale::Scale1_5 => write!(f, "Drizzle x1.5"),
+            Scale::Scale2_0 => write!(f, "Drizzle x2.0"),
+            Scale::Scale3_0 => write!(f, "Drizzle x3.0"),
         }
     }
 }

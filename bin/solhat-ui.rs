@@ -1,7 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 use anyhow::{anyhow, Result};
-use dirs;
 use eframe::egui;
 use solhat::anaysis::frame_sigma_analysis;
 use solhat::calibrationframe::CalibrationImage;
@@ -17,7 +16,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
-use tokio::task::yield_now;
 
 #[macro_use]
 extern crate stump;
@@ -25,13 +23,34 @@ extern crate stump;
 #[macro_use]
 extern crate lazy_static;
 
+// https://github.com/emilk/egui/discussions/1574
+pub(crate) fn load_icon() -> eframe::IconData {
+    let (icon_rgba, icon_width, icon_height) = {
+        let icon = include_bytes!("../assets/solhat_icon_32x32.png");
+        let image = image::load_from_memory(icon)
+            .expect("Failed to open icon path")
+            .into_rgba8();
+        let (width, height) = image.dimensions();
+        let rgba = image.into_raw();
+        (rgba, width, height)
+    };
+
+    eframe::IconData {
+        rgba: icon_rgba,
+        width: icon_width,
+        height: icon_height,
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), eframe::Error> {
     stump::set_min_log_level(stump::LogEntryLevel::DEBUG);
     info!("Starting SolHat-UI");
     let options = eframe::NativeOptions {
+        icon_data: Some(load_icon()),
         ..Default::default()
     };
+
     eframe::run_native("SolHat", options, Box::new(|_cc| Box::<SolHat>::default()))
 }
 
@@ -279,7 +298,7 @@ impl SolHat {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Light")
                         .set_directory(self.get_last_opened_folder())
-                        .add_filter("SER", &vec!["ser"])
+                        .add_filter("SER", &["ser"])
                         .pick_file()
                     {
                         self.light = Some(path.display().to_string());
@@ -300,7 +319,7 @@ impl SolHat {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Dark")
                         .set_directory(self.get_last_opened_folder())
-                        .add_filter("SER", &vec!["ser"])
+                        .add_filter("SER", &["ser"])
                         .pick_file()
                     {
                         self.dark = Some(path.display().to_string());
@@ -316,7 +335,7 @@ impl SolHat {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Flat")
                         .set_directory(self.get_last_opened_folder())
-                        .add_filter("SER", &vec!["ser"])
+                        .add_filter("SER", &["ser"])
                         .pick_file()
                     {
                         self.flat = Some(path.display().to_string());
@@ -332,7 +351,7 @@ impl SolHat {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Dark Flat")
                         .set_directory(self.get_last_opened_folder())
-                        .add_filter("SER", &vec!["ser"])
+                        .add_filter("SER", &["ser"])
                         .pick_file()
                     {
                         self.darkflat = Some(path.display().to_string());
@@ -348,7 +367,7 @@ impl SolHat {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Bias")
                         .set_directory(self.get_last_opened_folder())
-                        .add_filter("SER", &vec!["ser"])
+                        .add_filter("SER", &["ser"])
                         .pick_file()
                     {
                         self.bias = Some(path.display().to_string());
@@ -364,7 +383,7 @@ impl SolHat {
                     if let Some(path) = rfd::FileDialog::new()
                         .set_title("Open Hot Pixel Map")
                         .set_directory(self.get_last_opened_folder())
-                        .add_filter("toml", &vec!["toml"])
+                        .add_filter("toml", &["toml"])
                         .pick_file()
                     {
                         self.hot_pixel_map = Some(path.display().to_string());
@@ -493,7 +512,7 @@ impl SolHat {
             return Err(anyhow!("Input light file not provided"));
         };
 
-        let freetext = if self.freetext.len() > 0 {
+        let freetext = if self.freetext.is_empty() {
             format!("_{}", self.freetext)
         } else {
             "".to_owned()
@@ -501,7 +520,7 @@ impl SolHat {
 
         let drizzle = match self.drizzle_scale {
             Scale::Scale1_0 => "".to_owned(),
-            _ => format!("_{}", self.drizzle_scale.to_string()),
+            _ => format!("_{}", self.drizzle_scale),
         };
 
         let output_filename = format!(
@@ -553,7 +572,6 @@ impl SolHat {
             {
                 run_async(params, &output_filename).await.unwrap(); //.await.unwrap();
             }
-            yield_now()
         });
     }
 }
@@ -578,7 +596,7 @@ fn set_task_completed() {
     TASK_STATUS_QUEUE.lock().unwrap().status = None
 }
 
-async fn run_async(params: ProcessParameters, output_filename: &PathBuf) -> Result<()> {
+async fn run_async(params: ProcessParameters, output_filename: &Path) -> Result<()> {
     set_task_status("Processing Master Flat", 2, 1);
     let master_flat = if let Some(inputs) = &params.flat_inputs {
         info!("Processing master flat...");
