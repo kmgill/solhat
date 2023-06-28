@@ -94,6 +94,9 @@ impl Default for SolHat {
 
 impl eframe::App for SolHat {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Force 1for1 pixel scale.
+        ctx.set_pixels_per_point(1.0);
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal_wrapped(|ui| {
                 egui::widgets::global_dark_light_mode_switch(ui);
