@@ -16,9 +16,13 @@ name = "solhat"
 name = "solhat"
 path = "bin/solhat.rs"
 
-[profile.release]
+[[bin]]
+name = "solhat-ui"
+path = "bin/solhat-ui.rs"
+
+# [profile.release]
 # strip = true  # Automatically strip symbols from the binary.
-debug = 2
+# debug = 2
 
 
 [dependencies]
@@ -47,4 +51,8 @@ async-trait = "0.1.57"
 tokio = {version="1.21.2", features= ["full"]}
 colored = "2.0.0"
 itertools = "0.10.5"
-
+egui = "0.22.0"
+eframe = "0.22.0"
+log = { version = "0.4", features = ["std"] }
+env_logger = "0.10.0"
+rfd = "0.11"

@@ -42,6 +42,15 @@ impl Scale {
             )),
         }
     }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            Scale::Scale1_0 => "".to_owned(),
+            Scale::Scale1_5 => "Drizzle15".to_owned(),
+            Scale::Scale2_0 => "Drizzle20".to_owned(),
+            Scale::Scale3_0 => "Drizzle30".to_owned(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
