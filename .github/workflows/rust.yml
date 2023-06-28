@@ -34,9 +34,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install Clippy
-        uses: baptiste0928/cargo-install@v1
-        with:
-          crate: clippy
+        run: "rustup component add clippy"
 
       - name: Rustfmt
         uses: actions-rs/cargo@v1
