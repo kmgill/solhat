@@ -3,7 +3,7 @@
 use anyhow::{anyhow, Result};
 use eframe::egui;
 use egui::Pos2;
-use egui::Vec2;
+// use egui::Vec2;
 use serde::{Deserialize, Serialize};
 use solhat::anaysis::frame_sigma_analysis;
 use solhat::calibrationframe::CalibrationImage;
@@ -121,10 +121,12 @@ async fn main() -> Result<(), eframe::Error> {
             solhat.state.window_pos_x as f32,
             solhat.state.window_pos_y as f32,
         ));
-        options.initial_window_size = Some(Vec2::new(
-            solhat.state.window_width as f32,
-            solhat.state.window_height as f32,
-        ));
+        // This don't work on Linux (Fedora KDE). Windows keep growing...Likely
+        // related to egui's insistence on 1.5x UI scale?
+        // options.initial_window_size = Some(Vec2::new(
+        //     solhat.state.window_width as f32,
+        //     solhat.state.window_height as f32,
+        // ));
         Box::new(solhat)
     } else {
         options.centered = true;
@@ -424,7 +426,7 @@ impl SolHat {
                     }
                 }
                 if ui.button("Clear").clicked() {
-                    self.light = None;
+                    self.dark = None;
                 }
                 ui.end_row();
 
@@ -443,7 +445,7 @@ impl SolHat {
                     }
                 }
                 if ui.button("Clear").clicked() {
-                    self.light = None;
+                    self.flat = None;
                 }
                 ui.end_row();
 
@@ -462,7 +464,7 @@ impl SolHat {
                     }
                 }
                 if ui.button("Clear").clicked() {
-                    self.light = None;
+                    self.darkflat = None;
                 }
                 ui.end_row();
 
@@ -481,7 +483,7 @@ impl SolHat {
                     }
                 }
                 if ui.button("Clear").clicked() {
-                    self.light = None;
+                    self.bias = None;
                 }
                 ui.end_row();
 
@@ -500,7 +502,7 @@ impl SolHat {
                     }
                 }
                 if ui.button("Clear").clicked() {
-                    self.light = None;
+                    self.hot_pixel_map = None;
                 }
                 ui.end_row();
             });
@@ -530,11 +532,21 @@ impl SolHat {
         } = self;
 
         ui.label("Observer Latitude:");
-        ui.add(egui::DragValue::new(obs_latitude).speed(1.0));
+        ui.add(
+            egui::DragValue::new(obs_latitude)
+                .min_decimals(1)
+                .max_decimals(4)
+                .speed(1.0),
+        );
         ui.end_row();
 
         ui.label("Observer Longitude:");
-        ui.add(egui::DragValue::new(obs_longitude).speed(1.0));
+        ui.add(
+            egui::DragValue::new(obs_longitude)
+                .min_decimals(1)
+                .max_decimals(4)
+                .speed(1.0),
+        );
         ui.end_row();
 
         ui.label("Target:");
@@ -624,7 +636,10 @@ impl SolHat {
 
         let drizzle = match self.drizzle_scale {
             Scale::Scale1_0 => "".to_owned(),
-            _ => format!("_{}", self.drizzle_scale),
+            _ => format!(
+                "_{}",
+                self.drizzle_scale.to_string().replace([' ', '.'], "")
+            ),
         };
 
         let output_filename = format!(
