@@ -253,7 +253,7 @@ impl SolHat {
         if self.last_opened_folder.is_some() {
             self.last_opened_folder.to_owned().unwrap()
         } else {
-            dirs::home_dir().unwrap()
+            std::env::current_dir().unwrap()
         }
     }
 
