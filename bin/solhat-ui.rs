@@ -153,9 +153,10 @@ impl WindowState {
     }
 
     pub fn update_from_window_info(&mut self, _ctx: &egui::Context, frame: &mut eframe::Frame) {
-        let position = frame.info().window_info.position.unwrap();
-        self.window_pos_x = position.x as usize;
-        self.window_pos_y = position.y as usize;
+        if let Some(position) = frame.info().window_info.position {
+            self.window_pos_x = position.x as usize;
+            self.window_pos_y = position.y as usize;
+        }
 
         let dimension = frame.info().window_info.size;
         self.window_width = dimension.x as usize;
@@ -174,6 +175,12 @@ async fn main() -> Result<(), eframe::Error> {
         icon_data: Some(load_icon()),
         initial_window_size: Some(Vec2 { x: 885.0, y: 650.0 }),
         min_window_size: Some(Vec2 { x: 885.0, y: 650.0 }),
+        resizable: true,
+        transparent: true,
+        vsync: true,
+        multisampling: 0,
+        depth_buffer: 0,
+        stencil_buffer: 0,
         ..Default::default()
     };
 
@@ -234,9 +241,6 @@ impl eframe::App for SolHat {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.enforce_value_bounds();
         self.state.update_from_window_info(ctx, frame);
-
-        // Force 1for1 pixel scale.
-        ctx.set_pixels_per_point(1.0);
 
         self.on_update(ctx, frame);
     }
@@ -327,12 +331,10 @@ impl SolHat {
     }
 
     fn on_update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        ctx.set_pixels_per_point(1.0);
         // self.load_thumbnail(false);
         self.enforce_value_bounds();
         self.state.update_from_window_info(ctx, frame);
-
-        // Force 1for1 pixel scale.
-        ctx.set_pixels_per_point(1.0);
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal_wrapped(|ui| {
@@ -873,6 +875,7 @@ async fn run_async(params: ProcessParameters, output_filename: &Path) -> Result<
         0,
     );
     context.frame_records = frame_rotation_analysis(&context, |fr| {
+        increment_status();
         info!(
             "Rotation for frame is {} degrees",
             fr.computed_rotation.to_degrees()
@@ -885,6 +888,7 @@ async fn run_async(params: ProcessParameters, output_filename: &Path) -> Result<
         0,
     );
     context.frame_records = frame_offset_analysis(&context, |_fr| {
+        increment_status();
         info!("frame_offset_analysis(): Frame processed.")
     })?;
 
