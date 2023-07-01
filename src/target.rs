@@ -1,14 +1,15 @@
 use crate::{lunar, parallacticangle, solar, timestamp::TimeStamp};
 use anyhow::Result;
-
+use serde::{Deserialize, Serialize};
 pub struct TargetPosition {
     pub rotation: f64,
     pub altitude: f64,
     pub azimuth: f64,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub enum Target {
+    #[default]
     Sun,
     Moon,
     // Mercury,

@@ -4,14 +4,16 @@ use sciimg::imagebuffer::Offset;
 use sciimg::matrix::Matrix;
 use sciimg::prelude::*;
 use sciimg::vector::Vector;
+use serde::{Deserialize, Serialize};
 
 fn round_f64(v: f64) -> f64 {
     (v * 100000.0).round() / 100000.0
 }
 
 /// Supported drizzle scalings
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub enum Scale {
+    #[default]
     Scale1_0, // No upscaling
     Scale1_5,
     Scale2_0,
