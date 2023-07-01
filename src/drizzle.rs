@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::point::Point;
 use anyhow::{anyhow, Result};
 use sciimg::imagebuffer::Offset;
@@ -42,6 +44,17 @@ impl Scale {
                 "Invalid drizze scale: {}. Valid options: 1.0, 1.5, 2.0, 3.0",
                 s
             )),
+        }
+    }
+}
+
+impl Display for Scale {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Scale::Scale1_0 => write!(f, "Drizzle x1"),
+            Scale::Scale1_5 => write!(f, "Drizzle x1.5"),
+            Scale::Scale2_0 => write!(f, "Drizzle x2.0"),
+            Scale::Scale3_0 => write!(f, "Drizzle x3.0"),
         }
     }
 }
