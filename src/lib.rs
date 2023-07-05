@@ -4,6 +4,9 @@ extern crate stump;
 #[macro_use]
 extern crate itertools;
 
+#[macro_use]
+extern crate lazy_static;
+
 pub mod anaysis;
 pub mod calibrationframe;
 pub mod centerofmass;

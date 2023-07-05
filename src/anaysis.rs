@@ -17,7 +17,12 @@ where
         .map(|fr| {
             let mut fr_copy = fr.clone();
             let frame = fr.get_frame(context).expect("");
-            fr_copy.sigma = quality::get_quality_estimation(&frame.buffer) as f64;
+
+            let x = frame.buffer.width / 2 + fr_copy.offset.h as usize;
+            let y = frame.buffer.height / 2 + fr_copy.offset.v as usize;
+
+            fr_copy.sigma = quality::get_point_quality_estimation(&frame.buffer, 128, x, y) as f64;
+
             on_frame_checked(&fr_copy);
             fr_copy
         })

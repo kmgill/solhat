@@ -44,6 +44,7 @@ impl ColorFormatId {
 // Variable size of pixel_depth * image_width * image_height
 // Frames block is frame_size * num_images
 // Frames block starts off at byte 178
+#[derive(Debug, Clone)]
 pub struct SerFrame {
     pub buffer: image::Image,
     pub timestamp: timestamp::TimeStamp,
