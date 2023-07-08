@@ -142,6 +142,7 @@ impl RunnableSubcommand for Process {
                 darkflat_inputs: self.darkflat.to_owned(),
                 bias_inputs: self.bias.to_owned(),
                 hot_pixel_map: self.hotpixelmap.to_owned(),
+                analysis_window_size: 128,
             },
             master_flat,
             master_darkflat,

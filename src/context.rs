@@ -31,6 +31,7 @@ pub struct ProcessParameters {
     pub darkflat_inputs: Option<String>,
     pub bias_inputs: Option<String>,
     pub hot_pixel_map: Option<String>,
+    pub analysis_window_size: usize,
 }
 
 pub struct ProcessContext {
