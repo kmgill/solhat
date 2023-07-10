@@ -32,8 +32,14 @@ where
             let x = frame.buffer.width / 2 + fr_copy.offset.h as usize;
             let y = frame.buffer.height / 2 + fr_copy.offset.v as usize;
 
-            fr_copy.sigma =
-                quality::get_point_quality_estimation(&frame.buffer, window_size, x, y) as f64;
+            // If monochrome, this will perform the analysis on the only band. If RGB, we perform analysis
+            // on the red band.
+            fr_copy.sigma = quality::get_point_quality_estimation_on_buffer(
+                frame.buffer.get_band(0),
+                window_size,
+                x,
+                y,
+            ) as f64;
 
             on_frame_checked(&fr_copy);
             fr_copy

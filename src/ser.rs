@@ -235,27 +235,25 @@ impl SerFile {
         );
 
         let mut values: Vec<f32> = Vec::with_capacity(self.image_width * self.image_height);
-        values.resize(self.image_width * self.image_height, 0.0);
+        // values.resize(self.image_width * self.image_height, 0.0);
 
         let bytes_per_pixel = self.pixel_depth / 8;
+
         for y in 0..self.image_height {
             for x in 0..self.image_width {
                 let pixel_start =
                     (x + (y * self.image_width)) * bytes_per_pixel + image_frame_start_index;
-                let pixel_value: f32;
 
-                if self.pixel_depth == 8 {
-                    pixel_value = self.file_reader.read_u8(pixel_start)? as f32;
+                values.push(if self.pixel_depth == 8 {
+                    self.file_reader.read_u8(pixel_start)? as f32
                 } else if self.pixel_depth == 16 {
-                    pixel_value = self.file_reader.read_u16(pixel_start)? as f32;
+                    self.file_reader.read_u16(pixel_start)? as f32
                 } else {
                     panic!("Encountered unsupported pixel depth: {}", self.pixel_depth);
-                }
-
-                values[x + (y * self.image_width)] = pixel_value;
+                } as f32);
             }
         }
-
+        
         let frame_buffer = imagebuffer::ImageBuffer::from_vec_as_mode(
             &values,
             self.image_width,
@@ -267,7 +265,7 @@ impl SerFile {
         )
         .expect("Failed to allocate image buffer");
 
-        match self.color_id {
+         match self.color_id {
             ColorFormatId::Mono => Ok(SerFrame::new(
                 &frame_buffer,
                 self.get_frame_timestamp(frame_num)
@@ -275,7 +273,7 @@ impl SerFile {
             )),
             ColorFormatId::BayerRggb => {
                 let debayered =
-                    debayer::debayer(&frame_buffer, debayer::DebayerMethod::AMaZE).unwrap();
+                    debayer::debayer(&frame_buffer, debayer::DebayerMethod::Malvar).unwrap();
                 Ok(SerFrame::new_rgb(
                     debayered,
                     self.get_frame_timestamp(frame_num)
