@@ -161,7 +161,7 @@ pub fn limb_darkening_correction_on_image(
     let mid_vec = Vector::new(middle_x as f64, middle_y as f64, 0.0);
     let a = radius_pixels as f64;
 
-    let mut center_intensities = vec![0.0, 0.0, 0.0];
+    let mut center_intensities = [0.0, 0.0, 0.0];
     let mut coefficients = if ld_coefficients.len() == 1 {
         let mut ld_coefficients_tmp = ld_coefficients.clone();
         while ld_coefficients_tmp.len() < img.num_bands() {

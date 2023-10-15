@@ -89,8 +89,8 @@ impl BilinearDrizzle {
             out_width,
             out_height,
             frame_add_count: 0,
-            horiz_offset: horiz_offset,
-            vert_offset: vert_offset,
+            horiz_offset,
+            vert_offset,
             buffer: Image::new_with_bands(out_width, out_height, num_bands, ImageMode::U16BIT)
                 .expect("Failed to allocate rgbimage"),
             divisor: ImageBuffer::new(out_width, out_height)

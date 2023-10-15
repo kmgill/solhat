@@ -41,7 +41,7 @@ impl Target {
         ts: &TimeStamp,
     ) -> Result<TargetPosition> {
         if *self == Target::None {
-            return Ok(TargetPosition::default());
+            Ok(TargetPosition::default())
         } else {
             let (altitude, azimuth) = match self {
                 Target::Moon => {

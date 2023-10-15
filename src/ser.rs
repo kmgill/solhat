@@ -253,7 +253,7 @@ impl SerFile {
                 } as f32);
             }
         }
-        
+
         let frame_buffer = imagebuffer::ImageBuffer::from_vec_as_mode(
             &values,
             self.image_width,
@@ -265,7 +265,7 @@ impl SerFile {
         )
         .expect("Failed to allocate image buffer");
 
-         match self.color_id {
+        match self.color_id {
             ColorFormatId::Mono => Ok(SerFrame::new(
                 &frame_buffer,
                 self.get_frame_timestamp(frame_num)
