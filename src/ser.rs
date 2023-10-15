@@ -250,7 +250,7 @@ impl SerFile {
                     self.file_reader.read_u16(pixel_start)? as f32
                 } else {
                     panic!("Encountered unsupported pixel depth: {}", self.pixel_depth);
-                } as f32);
+                });
             }
         }
 
