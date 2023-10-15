@@ -32,6 +32,8 @@ pub struct ProcessParameters {
     pub bias_inputs: Option<String>,
     pub hot_pixel_map: Option<String>,
     pub analysis_window_size: usize,
+    pub vert_offset: i32,
+    pub horiz_offset: i32,
 }
 
 pub struct ProcessContext {

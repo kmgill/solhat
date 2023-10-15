@@ -21,6 +21,9 @@ where
                 .buffer
                 .calc_center_of_mass_offset(context.parameters.obj_detection_threshold as f32, 0);
 
+            fr_copy.offset.h += context.parameters.horiz_offset as f32;
+            fr_copy.offset.v += context.parameters.vert_offset as f32;
+
             on_frame_checked(&fr_copy);
             fr_copy
         })

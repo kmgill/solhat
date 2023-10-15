@@ -14,5 +14,5 @@ pub fn position_from_lat_lon_and_time(lat: f64, lon: f64, ts: &timestamp::TimeSt
     info!("Time {:?} converted to unix timestamp {}", ts, unixtime);
     let pos = sun::pos(unixtime * 1000, lat, lon);
 
-    (pos.altitude.to_degrees(), pos.azimuth.to_degrees())
+    (pos.altitude.to_degrees(), pos.azimuth.to_degrees() - 45.0)
 }

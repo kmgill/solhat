@@ -135,6 +135,8 @@ impl RunnableSubcommand for PreProcess {
                 bias_inputs: self.bias.to_owned(),
                 hot_pixel_map: self.hotpixelmap.to_owned(),
                 analysis_window_size: 128,
+                vert_offset: 0,
+                horiz_offset: 0,
             },
             master_flat,
             master_darkflat,

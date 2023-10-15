@@ -15,10 +15,18 @@ where
     }
 
     let mut master_drizzle = BilinearDrizzle::new(
-        context.frame_records[0].frame_width,
-        context.frame_records[0].frame_height,
+        context
+            .parameters
+            .crop_width
+            .unwrap_or(context.frame_records[0].frame_width),
+        context
+            .parameters
+            .crop_height
+            .unwrap_or(context.frame_records[0].frame_height),
         context.parameters.drizzle_scale,
         3,
+        context.parameters.horiz_offset,
+        context.parameters.vert_offset,
     );
 
     let num_per_chunk = context.frame_records.len() / num_cpus::get();
@@ -28,10 +36,18 @@ where
         .par_chunks(num_per_chunk)
         .map(|record_chunk| {
             let mut drizzle = BilinearDrizzle::new(
-                context.frame_records[0].frame_width,
-                context.frame_records[0].frame_height,
+                context
+                    .parameters
+                    .crop_width
+                    .unwrap_or(context.frame_records[0].frame_width),
+                context
+                    .parameters
+                    .crop_height
+                    .unwrap_or(context.frame_records[0].frame_height),
                 context.parameters.drizzle_scale,
                 3,
+                context.parameters.horiz_offset,
+                context.parameters.vert_offset,
             );
 
             record_chunk.iter().for_each(|fr| {

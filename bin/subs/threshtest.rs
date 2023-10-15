@@ -85,6 +85,8 @@ impl RunnableSubcommand for ThreshTest {
                 bias_inputs: self.bias.to_owned(),
                 hot_pixel_map: None,
                 analysis_window_size: 128,
+                vert_offset: 0,
+                horiz_offset: 0,
             },
             master_flat,
             master_darkflat,

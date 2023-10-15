@@ -68,6 +68,8 @@ pub struct BilinearDrizzle {
     buffer: Image,
     frame_add_count: usize,
     divisor: ImageBuffer,
+    horiz_offset: i32,
+    vert_offset: i32,
 }
 
 impl BilinearDrizzle {
@@ -76,6 +78,8 @@ impl BilinearDrizzle {
         in_height: usize,
         scale: Scale,
         num_bands: usize,
+        horiz_offset: i32,
+        vert_offset: i32,
     ) -> BilinearDrizzle {
         let out_width = (in_width as f32 * scale.value()).ceil() as usize;
         let out_height = (in_height as f32 * scale.value()).ceil() as usize;
@@ -85,6 +89,8 @@ impl BilinearDrizzle {
             out_width,
             out_height,
             frame_add_count: 0,
+            horiz_offset: horiz_offset,
+            vert_offset: vert_offset,
             buffer: Image::new_with_bands(out_width, out_height, num_bands, ImageMode::U16BIT)
                 .expect("Failed to allocate rgbimage"),
             divisor: ImageBuffer::new(out_width, out_height)
@@ -167,9 +173,9 @@ impl BilinearDrizzle {
         //let mut mtx = Matrix::identity();
         let mtx = Matrix::rotate(rotation, Axis::ZAxis);
 
-        for y in 0..self.out_height {
-            for x in 0..self.out_width {
-                let mut in_pt = self.buffer_point_to_input_point(x, y);
+        for y in 0..self.out_height as i32 {
+            for x in 0..self.out_width as i32 {
+                let mut in_pt = self.buffer_point_to_input_point(x as usize, y as usize);
 
                 let mut pt_vec = Vector::new(
                     in_pt.x as f64 - (other.width / 2) as f64,
@@ -185,18 +191,44 @@ impl BilinearDrizzle {
                 in_pt.x -= offset.h;
                 in_pt.y -= offset.v;
 
-                self.divisor.put(x, y, self.divisor.get(x, y) + 1.0);
+                self.divisor.put(
+                    x as usize,
+                    y as usize,
+                    self.divisor.get(x as usize, y as usize) + 1.0,
+                );
                 for band in 0..other.num_bands() {
                     if let Some(v) = in_pt.get_interpolated_color(other.get_band(band)) {
-                        self.buffer
-                            .put(x, y, v + self.buffer.get_band(band).get(x, y), band);
+                        let x2 = x + self.horiz_offset;
+                        let y2 = y + self.vert_offset;
+
+                        if x2 >= self.out_width as i32
+                            || y2 >= self.out_height as i32
+                            || x2 < 0
+                            || y2 < 0
+                        {
+                            continue;
+                        }
+                        self.buffer.put(
+                            x2 as usize,
+                            y2 as usize,
+                            v + self.buffer.get_band(band).get(x2 as usize, y2 as usize),
+                            band,
+                        );
 
                         // If we're running as a 3 band drizzle buffer and the user passed in a single-band frame
                         if other.num_bands() == 1 {
-                            self.buffer
-                                .put(x, y, v + self.buffer.get_band(1).get(x, y), 1);
-                            self.buffer
-                                .put(x, y, v + self.buffer.get_band(2).get(x, y), 2);
+                            self.buffer.put(
+                                x2 as usize,
+                                y2 as usize,
+                                v + self.buffer.get_band(1).get(x2 as usize, y2 as usize),
+                                1,
+                            );
+                            self.buffer.put(
+                                x2 as usize,
+                                y2 as usize,
+                                v + self.buffer.get_band(2).get(x2 as usize, y2 as usize),
+                                2,
+                            );
                         }
                     }
                 }
