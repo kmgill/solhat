@@ -142,18 +142,18 @@ impl SerFile {
 
         // Some values are ok to default out, others need to propogate their errors
         let ser = SerFile {
-            file_id: file_reader.read_string(0, 14).unwrap_or(String::default()), // 14 bytes
-            camera_series_id: file_reader.read_i32(14).unwrap_or(0), // 4 bytes, start at 14
+            file_id: file_reader.read_string(0, 14).unwrap_or_default(), // 14 bytes
+            camera_series_id: file_reader.read_i32(14).unwrap_or(0),     // 4 bytes, start at 14
             color_id: ColorFormatId::from_i32(file_reader.read_i32(18).unwrap_or(0)), // 4 bytes, start at 18
             image_width: file_reader.read_i32(26)? as usize, // 4 bytes, start at 26
             image_height: file_reader.read_i32(30)? as usize, // 4 bytes, start at 30
             pixel_depth: file_reader.read_i32(34)? as usize, // 4 bytes, start at 34
             frame_count: file_reader.read_i32(38)? as usize, // 4 bytes, start at 38
-            observer: file_reader.read_string(42, 40).unwrap_or(String::default()), // 40 bytes, start at 42
-            instrument: file_reader.read_string(82, 40).unwrap_or(String::default()), // 40 bytes, start at 82
+            observer: file_reader.read_string(42, 40).unwrap_or_default(), // 40 bytes, start at 42
+            instrument: file_reader.read_string(82, 40).unwrap_or_default(), // 40 bytes, start at 82
             telescope: file_reader
                 .read_string(122, 40)
-                .unwrap_or(String::default()), // 40 bytes, start at 122
+                .unwrap_or_default(), // 40 bytes, start at 122
             date_time: timestamp::TimeStamp::from_u64(file_reader.read_u64(162)?), // 8 bytes, start at 162
             date_time_utc: timestamp::TimeStamp::from_u64(file_reader.read_u64(170)?), // 8 bytes, start at 170
             total_size: file_reader.len(),
