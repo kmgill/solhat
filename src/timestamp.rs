@@ -1,7 +1,7 @@
 extern crate astro;
 use astro::*;
 
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 
 const SEPTASECONDS_PER_SECOND: u64 = 10000000;
 const SEPTASECONDS_PER_MICROSECOND: u64 = 10;
@@ -124,5 +124,19 @@ impl TimeStamp {
                 .and_hms_opt(self.hour as u32, self.minute as u32, self.second as u32)
                 .unwrap();
         date_time.timestamp()
+    }
+
+    pub fn to_chrono_utc(&self) -> DateTime<Utc> {
+        NaiveDate::from_ymd_opt(self.year, self.month as u32, self.day as u32)
+            .unwrap()
+            .and_hms_micro_opt(
+                self.hour as u32,
+                self.minute as u32,
+                self.second as u32,
+                self.microsecond as u32,
+            )
+            .unwrap()
+            .and_local_timezone(Utc)
+            .unwrap()
     }
 }
