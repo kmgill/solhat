@@ -1,7 +1,7 @@
 extern crate astro;
 use astro::*;
 
-use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc, TimeZone};
 
 const SEPTASECONDS_PER_SECOND: u64 = 10000000;
 const SEPTASECONDS_PER_MICROSECOND: u64 = 10;
@@ -50,7 +50,7 @@ impl TimeStamp {
         }
 
         for y in year..9999 {
-            let year = y;
+            year = y;
             let days_this_year = if TimeStamp::is_leap_year(year) {
                 366
             } else {
