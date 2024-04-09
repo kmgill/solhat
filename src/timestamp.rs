@@ -1,7 +1,7 @@
 extern crate astro;
 use astro::*;
 
-use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc, TimeZone};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 
 const SEPTASECONDS_PER_SECOND: u64 = 10000000;
 const SEPTASECONDS_PER_MICROSECOND: u64 = 10;
