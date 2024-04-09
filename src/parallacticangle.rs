@@ -52,7 +52,7 @@ pub fn from_lat_azimuth_altitude(f: f64, a: f64, al: f64) -> f64 {
     let z = 90.0 - al;
     let mut pa = ((f.to_radians().sin() * z.to_radians().sin()
         - f.to_radians().cos() * z.to_radians().cos() * a.to_radians().cos())
-        / d.to_radians().cos())
+        / d.cos())
     .acos()
     .to_degrees();
     if a < 180.0 {
