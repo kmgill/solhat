@@ -1,12 +1,15 @@
-use crate::subs::runnable::RunnableSubcommand;
 use anyhow::Result;
 use clap::Parser;
+
 use solhat::calibrationframe::CalibrationImage;
 use solhat::calibrationframe::ComputeMethod;
 use solhat::context::*;
 use solhat::drizzle::Scale;
+use solhat::ser::SerFile;
 use solhat::target::Target;
 use solhat::threshtest::compute_threshtest_image;
+
+use crate::subs::runnable::RunnableSubcommand;
 
 pb_create_spinner!();
 
@@ -64,7 +67,7 @@ impl RunnableSubcommand for ThreshTest {
             CalibrationImage::new_empty()
         };
 
-        let context = ProcessContext::create_with_calibration_frames(
+        let context: ProcessContext<SerFile> = ProcessContext::create_with_calibration_frames(
             &ProcessParameters {
                 input_files: self.input_files.clone(),
                 obj_detection_threshold: self.threshold.unwrap_or(5000.0),

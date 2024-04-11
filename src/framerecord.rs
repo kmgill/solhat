@@ -2,16 +2,17 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use crate::context::ProcessContext;
-use crate::hotpixel;
-use crate::ser::SerFrame;
-use crate::target::TargetPosition;
-use crate::timestamp::TimeStamp;
 use anyhow::Result;
 use sciimg::imagebuffer::Offset;
 
+use crate::context::ProcessContext;
+use crate::datasource::{DataFrame, DataSource};
+use crate::hotpixel;
+use crate::target::TargetPosition;
+use crate::timestamp::TimeStamp;
+
 lazy_static! {
-    static ref FRAME_CACHE: Arc<Mutex<HashMap<String, SerFrame>>> =
+    static ref FRAME_CACHE: Arc<Mutex<HashMap<String, DataFrame>>> =
         Arc::new(Mutex::new(HashMap::new()));
 }
 
@@ -27,7 +28,7 @@ fn cache_has_frame(file: &str, id: usize) -> bool {
 }
 
 #[allow(dead_code)]
-fn put_frame(file: &str, id: usize, frame: &SerFrame) {
+fn put_frame(file: &str, id: usize, frame: &DataFrame) {
     let hash_id = make_hash_id(file, id);
     FRAME_CACHE
         .lock()
@@ -36,7 +37,7 @@ fn put_frame(file: &str, id: usize, frame: &SerFrame) {
 }
 
 #[allow(dead_code)]
-fn get_frame(file: &str, id: usize) -> Option<SerFrame> {
+fn get_frame(file: &str, id: usize) -> Option<DataFrame> {
     let hash_id = make_hash_id(file, id);
     if cache_has_frame(file, id) {
         Some(
@@ -64,7 +65,7 @@ pub struct FrameRecord {
 }
 
 impl FrameRecord {
-    pub fn get_frame(&self, context: &ProcessContext) -> Result<SerFrame> {
+    pub fn get_frame<F:DataSource>(&self, context: &ProcessContext<F>) -> Result<DataFrame> {
         let (_, ser) = context
             .fp_map
             .get_map()
@@ -87,7 +88,10 @@ impl FrameRecord {
         // }
     }
 
-    pub fn get_calibrated_frame(&self, context: &ProcessContext) -> Result<SerFrame> {
+    pub fn get_calibrated_frame<F: DataSource>(
+        &self,
+        context: &ProcessContext<F>,
+    ) -> Result<DataFrame> {
         let mut frame_buffer = self.get_frame(context)?;
 
         frame_buffer.buffer.calibrate2(
@@ -104,18 +108,20 @@ impl FrameRecord {
         Ok(frame_buffer)
     }
 
-    pub fn get_timestamp(&self, context: &ProcessContext) -> Result<TimeStamp> {
+    pub fn get_timestamp<F: DataSource>(&self, context: &ProcessContext<F>) -> Result<TimeStamp> {
         let (_, ser) = context
             .fp_map
             .get_map()
             .iter()
             .find(|(id, _)| **id == self.source_file_id)
             .unwrap();
-        let timestamp = ser.get_frame_timestamp(self.frame_id)?;
-        Ok(TimeStamp::from_u64(timestamp))
+        ser.get_frame_timestamp(self.frame_id)
     }
 
-    pub fn get_rotation_for_time(&self, context: &ProcessContext) -> Result<TargetPosition> {
+    pub fn get_rotation_for_time<F: DataSource>(
+        &self,
+        context: &ProcessContext<F>,
+    ) -> Result<TargetPosition> {
         let ts = self.get_timestamp(context)?;
         context.parameters.target.position_from_lat_lon_and_time(
             context.parameters.obs_latitude,

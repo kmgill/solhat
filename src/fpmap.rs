@@ -1,27 +1,29 @@
-use crate::ser;
-use anyhow::{anyhow, Result};
-use sciimg::path;
 use std::collections::HashMap;
 
+use anyhow::{Error, Result};
+use sciimg::path;
+
+use crate::datasource::DataSource;
+
 /** file pointer map */
-pub struct FpMap {
-    pub map: HashMap<String, ser::SerFile>,
+pub struct FpMap<F: DataSource> {
+    pub map: HashMap<String, F>,
 }
 
-impl Default for FpMap {
+impl<F: DataSource> Default for FpMap<F> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl FpMap {
+impl<F: DataSource> FpMap<F> {
     pub fn new() -> Self {
         FpMap {
             map: HashMap::new(),
         }
     }
 
-    pub fn get_map(&self) -> &HashMap<String, ser::SerFile> {
+    pub fn get_map(&self) -> &HashMap<String, F> {
         &self.map
     }
 
@@ -29,11 +31,11 @@ impl FpMap {
         self.map.contains_key(path)
     }
 
-    pub fn get_dont_open(&self, path: &String) -> Option<&ser::SerFile> {
+    pub fn get_dont_open(&self, path: &String) -> Option<&F> {
         self.map.get(path)
     }
 
-    pub fn get(&mut self, path: &String) -> Option<&ser::SerFile> {
+    pub fn get(&mut self, path: &String) -> Option<&F> {
         if !self.contains(path) {
             match self.open(path) {
                 Ok(_) => {}
@@ -48,7 +50,7 @@ impl FpMap {
 
     pub fn open(&mut self, path: &String) -> Result<()> {
         if self.contains(path) {
-            return Err(anyhow!("File already open"));
+            return Err(Error::msg("File already open"));
         }
 
         info!("Opening file in fpmap: {}", path);
@@ -57,13 +59,13 @@ impl FpMap {
             panic!("File not found: {}", path);
         }
 
-        match ser::SerFile::load_ser(path) {
+        match F::open(path) {
             Ok(ser_file) => {
-                ser_file.validate();
+                ser_file.validate()?;
                 self.map.insert(path.clone(), ser_file);
                 Ok(())
             }
-            Err(e) => Err(anyhow!(e)),
+            Err(e) => Err(Error::msg(e)),
         }
     }
 }

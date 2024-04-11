@@ -1,15 +1,18 @@
-use crate::context::ProcessContext;
-use crate::framerecord::FrameRecord;
 use anyhow::Result;
 use rayon::prelude::*;
 
+use crate::context::ProcessContext;
+use crate::datasource::DataSource;
+use crate::framerecord::FrameRecord;
+
 /// Determines the parallactic angle of rotation for each frame
-pub fn frame_rotation_analysis<F>(
-    context: &ProcessContext,
-    on_frame_checked: F,
+pub fn frame_rotation_analysis<C, F>(
+    context: &ProcessContext<F>,
+    on_frame_checked: C,
 ) -> Result<Vec<FrameRecord>>
 where
-    F: Fn(&FrameRecord) + Send + Sync + 'static,
+    C: Fn(&FrameRecord) + Send + Sync + 'static,
+    F: DataSource + Send + Sync + 'static,
 {
     let frame_records: Vec<FrameRecord> = context
         .frame_records

@@ -1,15 +1,16 @@
-use crate::calibrationframe::CalibrationImage;
-use crate::drizzle::Scale;
-use crate::fpmap::FpMap;
-use crate::framerecord::FrameRecord;
-use crate::hotpixel;
-use crate::ser::SerFile;
-use crate::stats::ProcessStats;
-use crate::target::Target;
 use anyhow::Result;
 use rayon::prelude::*;
 use sciimg::imagebuffer::Offset;
 use sciimg::prelude::ImageBuffer;
+
+use crate::calibrationframe::CalibrationImage;
+use crate::datasource::DataSource;
+use crate::drizzle::Scale;
+use crate::fpmap::FpMap;
+use crate::framerecord::FrameRecord;
+use crate::hotpixel;
+use crate::stats::ProcessStats;
+use crate::target::Target;
 
 #[derive(Debug, Clone)]
 pub struct ProcessParameters {
@@ -36,9 +37,9 @@ pub struct ProcessParameters {
     pub horiz_offset: i32,
 }
 
-pub struct ProcessContext {
+pub struct ProcessContext<F: DataSource> {
     pub parameters: ProcessParameters,
-    pub fp_map: FpMap,
+    pub fp_map: FpMap<F>,
     pub master_flat: CalibrationImage,
     pub master_dark: CalibrationImage,
     pub master_darkflat: CalibrationImage,
@@ -48,19 +49,22 @@ pub struct ProcessContext {
     pub hotpixel_mask: Option<ImageBuffer>,
 }
 
-fn load_frame_records_for_ser(ser_file: &SerFile, number_of_frames: usize) -> Vec<FrameRecord> {
-    let frame_count = if ser_file.frame_count > number_of_frames {
+fn load_frame_records_for_data_source<F: DataSource>(
+    ser_file: &F,
+    number_of_frames: usize,
+) -> Vec<FrameRecord> {
+    let frame_count = if ser_file.frame_count() > number_of_frames {
         number_of_frames
     } else {
-        ser_file.frame_count
+        ser_file.frame_count()
     };
 
     (0..frame_count)
         .map(|i| FrameRecord {
-            source_file_id: ser_file.source_file.to_string(),
+            source_file_id: ser_file.source_file().to_string(),
             frame_id: i,
-            frame_width: ser_file.image_width,
-            frame_height: ser_file.image_height,
+            frame_width: ser_file.image_width(),
+            frame_height: ser_file.image_height(),
             sigma: 0.0,
             computed_rotation: 0.0,
             offset: Offset { h: 0.0, v: 0.0 },
@@ -78,7 +82,7 @@ fn load_hot_pixel_mask(file_path: &Option<String>) -> Result<Option<ImageBuffer>
     }
 }
 
-impl ProcessContext {
+impl<F: DataSource + Send + Sync + 'static> ProcessContext<F> {
     pub fn create_with_calibration_frames(
         params: &ProcessParameters,
         master_flat: CalibrationImage,
@@ -109,7 +113,9 @@ impl ProcessContext {
             .fp_map
             .get_map()
             .par_iter()
-            .map(|(_, ser)| load_frame_records_for_ser(ser, params.max_frames.unwrap_or(100000000)))
+            .map(|(_, ser)| {
+                load_frame_records_for_data_source(ser, params.max_frames.unwrap_or(100000000))
+            })
             .collect::<Vec<Vec<FrameRecord>>>()
             .iter()
             .flatten()
