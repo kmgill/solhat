@@ -1,7 +1,8 @@
-use anyhow::Result;
+use anyhow::{Error, Result};
 use sciimg::image;
 
 use crate::timestamp;
+use crate::timestamp::TimeStamp;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ColorFormatId {
@@ -61,14 +62,99 @@ pub trait DataSource {
 
     fn source_file(&self) -> String;
 
-    fn open(path: &str) -> Result<Self>
+    fn open(path: &[String]) -> Result<Self>
     where
         Self: Sized;
 
     fn validate(&self) -> Result<()>;
 
     fn print_header_details(&self);
+
+    fn file_hash(&self) -> String;
 }
 
 #[allow(dead_code)]
 pub type ImageDataSource = dyn DataSource + Send + Sync + 'static;
+
+pub struct EmptyDataSource {}
+
+impl DataSource for EmptyDataSource {
+    fn color_id(&self) -> ColorFormatId {
+        ColorFormatId::Mono
+    }
+
+    fn file_id(&self) -> String {
+        "".to_string()
+    }
+
+    fn image_width(&self) -> usize {
+        0
+    }
+
+    fn image_height(&self) -> usize {
+        0
+    }
+
+    fn pixel_depth(&self) -> usize {
+        8
+    }
+
+    fn frame_count(&self) -> usize {
+        0
+    }
+
+    fn observer(&self) -> String {
+        "".to_string()
+    }
+
+    fn instrument(&self) -> String {
+        "".to_string()
+    }
+
+    fn telescope(&self) -> String {
+        "".to_string()
+    }
+
+    fn date_time(&self) -> TimeStamp {
+        0.into()
+    }
+
+    fn date_time_utc(&self) -> TimeStamp {
+        0.into()
+    }
+
+    fn total_file_size(&self) -> usize {
+        0
+    }
+
+    fn get_frame(&self, _frame_num: usize) -> Result<DataFrame> {
+        Err(Error::msg("No frames to retrieve"))
+    }
+
+    fn get_frame_timestamp(&self, _frame_num: usize) -> Result<TimeStamp> {
+        Ok(0.into())
+    }
+
+    fn source_file(&self) -> String {
+        "".to_string()
+    }
+
+    fn open(_path: &[String]) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(EmptyDataSource {})
+    }
+
+    fn validate(&self) -> Result<()> {
+        Err(Error::msg("Cannot validate: data source is empty"))
+    }
+
+    fn print_header_details(&self) {
+        println!("Empty data source")
+    }
+
+    fn file_hash(&self) -> String {
+        "000000000000".to_string()
+    }
+}

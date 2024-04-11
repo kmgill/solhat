@@ -1,6 +1,4 @@
 use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use sciimg::imagebuffer::Offset;
@@ -10,48 +8,6 @@ use crate::datasource::{DataFrame, DataSource};
 use crate::hotpixel;
 use crate::target::TargetPosition;
 use crate::timestamp::TimeStamp;
-
-lazy_static! {
-    static ref FRAME_CACHE: Arc<Mutex<HashMap<String, DataFrame>>> =
-        Arc::new(Mutex::new(HashMap::new()));
-}
-
-#[allow(dead_code)]
-fn make_hash_id(file: &str, id: usize) -> String {
-    format!("{}-{}", file, id)
-}
-
-#[allow(dead_code)]
-fn cache_has_frame(file: &str, id: usize) -> bool {
-    let hash_id = make_hash_id(file, id);
-    FRAME_CACHE.lock().unwrap().contains_key(&hash_id)
-}
-
-#[allow(dead_code)]
-fn put_frame(file: &str, id: usize, frame: &DataFrame) {
-    let hash_id = make_hash_id(file, id);
-    FRAME_CACHE
-        .lock()
-        .unwrap()
-        .insert(hash_id, frame.to_owned());
-}
-
-#[allow(dead_code)]
-fn get_frame(file: &str, id: usize) -> Option<DataFrame> {
-    let hash_id = make_hash_id(file, id);
-    if cache_has_frame(file, id) {
-        Some(
-            FRAME_CACHE
-                .lock()
-                .unwrap()
-                .get(&hash_id)
-                .unwrap()
-                .to_owned(),
-        )
-    } else {
-        None
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct FrameRecord {
@@ -73,19 +29,6 @@ impl FrameRecord {
             .find(|(id, _)| **id == self.source_file_id)
             .unwrap();
         ser.get_frame(self.frame_id)
-        // if cache_has_frame(&self.source_file_id, self.frame_id) {
-        //     Ok(get_frame(&self.source_file_id, self.frame_id).unwrap())
-        // } else {
-        //     let (_, ser) = context
-        //         .fp_map
-        //         .get_map()
-        //         .iter()
-        //         .find(|(id, _)| **id == self.source_file_id)
-        //         .unwrap();
-        //     let frame = ser.get_frame(self.frame_id)?;
-        //     put_frame(&self.source_file_id, self.frame_id, &frame);
-        //     Ok(frame)
-        // }
     }
 
     pub fn get_calibrated_frame<F: DataSource>(

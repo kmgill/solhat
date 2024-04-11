@@ -331,8 +331,12 @@ impl DataSource for SerFile {
         self.source_file.clone()
     }
 
-    fn open(path: &str) -> Result<Self> {
-        SerFile::load_ser(path)
+    fn open(path: &[String]) -> Result<Self> {
+        if path.len() != 1 {
+            Err(Error::msg("Only one ser file supported at this time"))
+        } else {
+            SerFile::load_ser(&path[0])
+        }
     }
 
     fn validate(&self) -> Result<()> {
@@ -341,5 +345,9 @@ impl DataSource for SerFile {
 
     fn print_header_details(&self) {
         self.print_ser_header_details();
+    }
+
+    fn file_hash(&self) -> String {
+        self.source_file.clone()
     }
 }

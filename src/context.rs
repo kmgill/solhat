@@ -61,7 +61,7 @@ fn load_frame_records_for_data_source<F: DataSource>(
 
     (0..frame_count)
         .map(|i| FrameRecord {
-            source_file_id: ser_file.source_file().to_string(),
+            source_file_id: ser_file.file_hash(),
             frame_id: i,
             frame_width: ser_file.image_width(),
             frame_height: ser_file.image_height(),
@@ -105,7 +105,7 @@ impl<F: DataSource + Send + Sync + 'static> ProcessContext<F> {
         params.input_files.iter().for_each(|input_file| {
             info!("Loading input file: {}", input_file);
             pc.fp_map
-                .open(input_file)
+                .open(&[input_file.to_string()])
                 .expect("Failed to open input file");
         });
 
