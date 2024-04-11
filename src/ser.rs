@@ -79,11 +79,11 @@ impl SerFrame {
     }
 }
 
-impl Into<DataFrame> for SerFrame {
-    fn into(self) -> DataFrame {
+impl From<SerFrame> for DataFrame {
+    fn from(val: SerFrame) -> Self {
         DataFrame {
-            buffer: self.buffer,
-            timestamp: self.timestamp,
+            buffer: val.buffer,
+            timestamp: val.timestamp,
         }
     }
 }
@@ -308,11 +308,11 @@ impl DataSource for SerFile {
     }
 
     fn date_time(&self) -> TimeStamp {
-        self.date_time.clone()
+        self.date_time
     }
 
     fn date_time_utc(&self) -> TimeStamp {
-        self.date_time_utc.clone()
+        self.date_time_utc
     }
 
     fn total_file_size(&self) -> usize {

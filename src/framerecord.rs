@@ -65,7 +65,7 @@ pub struct FrameRecord {
 }
 
 impl FrameRecord {
-    pub fn get_frame<F:DataSource>(&self, context: &ProcessContext<F>) -> Result<DataFrame> {
+    pub fn get_frame<F: DataSource>(&self, context: &ProcessContext<F>) -> Result<DataFrame> {
         let (_, ser) = context
             .fp_map
             .get_map()
