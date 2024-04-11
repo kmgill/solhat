@@ -90,7 +90,7 @@ pub fn limb_darkening_correction(
     image_file: &String,
     output_file: &String,
     radius_pixels: usize,
-    ld_coefficients: &Vec<f64>,
+    ld_coefficients: &[f64],
     composite_gradient_margin: f64,
     inverted_chromosphere: bool,
 ) -> Result<()> {
@@ -128,7 +128,7 @@ pub fn limb_darkening_correction(
 pub fn limb_darkening_correction_on_image(
     img: &Image,
     radius_pixels: usize,
-    ld_coefficients: &Vec<f64>,
+    ld_coefficients: &[f64],
     composite_gradient_margin: f64,
     inverted_chromosphere: bool,
 ) -> Result<Image> {
@@ -163,13 +163,13 @@ pub fn limb_darkening_correction_on_image(
 
     let mut center_intensities = [0.0, 0.0, 0.0];
     let mut coefficients = if ld_coefficients.len() == 1 {
-        let mut ld_coefficients_tmp = ld_coefficients.clone();
+        let mut ld_coefficients_tmp = ld_coefficients.to_owned();
         while ld_coefficients_tmp.len() < img.num_bands() {
             ld_coefficients_tmp.push(ld_coefficients[0]);
         }
         ld_coefficients_tmp
     } else {
-        ld_coefficients.clone()
+        ld_coefficients.to_owned()
     };
 
     // Pixel value at the center

@@ -29,7 +29,8 @@ impl TimeStamp {
         (year % 400 == 0 || year % 4 == 0) && year % 100 != 0
     }
 
-    // This code is adapter from ser_viewer/pipp_timestmp.cpp, (c) 2015 by Chris Garry
+    // This code is adapted from ser_viewer/pipp_timestmp.cpp, (c) 2015 by Chris Garry
+    #[allow(clippy::mut_range_bound)]
     pub fn from_u64(ts_u64: u64) -> TimeStamp {
         let ts = ts_u64 % SEPTASECONDS_PER_DAY;
 

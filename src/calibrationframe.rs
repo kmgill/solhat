@@ -1,6 +1,6 @@
 use crate::mean;
 use crate::median;
-use anyhow::Result;
+use anyhow::{Error, Result};
 use sciimg::prelude::*;
 use std::{ffi::OsStr, path::Path};
 
@@ -32,7 +32,7 @@ impl CalibrationImage {
                 _ => CalibrationImage::new_from_image(file_path),
             }
         } else {
-            Err(anyhow!("Unable to determine file type"))
+            Err(Error::msg("Unable to determine file type"))
         }
     }
 

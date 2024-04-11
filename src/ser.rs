@@ -151,9 +151,7 @@ impl SerFile {
             frame_count: file_reader.read_i32(38)? as usize, // 4 bytes, start at 38
             observer: file_reader.read_string(42, 40).unwrap_or_default(), // 40 bytes, start at 42
             instrument: file_reader.read_string(82, 40).unwrap_or_default(), // 40 bytes, start at 82
-            telescope: file_reader
-                .read_string(122, 40)
-                .unwrap_or_default(), // 40 bytes, start at 122
+            telescope: file_reader.read_string(122, 40).unwrap_or_default(), // 40 bytes, start at 122
             date_time: timestamp::TimeStamp::from_u64(file_reader.read_u64(162)?), // 8 bytes, start at 162
             date_time_utc: timestamp::TimeStamp::from_u64(file_reader.read_u64(170)?), // 8 bytes, start at 170
             total_size: file_reader.len(),

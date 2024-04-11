@@ -1,5 +1,5 @@
 use crate::{lunar, parallacticangle, solar, timestamp::TimeStamp};
-use anyhow::Result;
+use anyhow::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default)]
@@ -30,7 +30,7 @@ impl Target {
             "MOON" => Ok(Target::Moon),
             "SUN" => Ok(Target::Sun),
             "NONE" => Ok(Target::None),
-            _ => Err(anyhow!("Invalid target supplied: '{}'", s)),
+            _ => Err(Error::msg(format!("Invalid target supplied: '{}'", s))),
         }
     }
 
@@ -52,7 +52,7 @@ impl Target {
                     info!("Calculating position for Sun");
                     solar::position_from_lat_lon_and_time(obs_latitude, obs_longitude, ts)
                 }
-                _ => return Err(anyhow!("Unsupported target for rotation")),
+                _ => return Err(Error::msg("Unsupported target for rotation")),
             };
 
             let rotation =
