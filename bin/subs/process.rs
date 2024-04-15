@@ -1,6 +1,6 @@
-use crate::subs::runnable::RunnableSubcommand;
 use anyhow::Result;
 use clap::Parser;
+
 use solhat::anaysis::frame_sigma_analysis;
 use solhat::calibrationframe::CalibrationImage;
 use solhat::calibrationframe::ComputeMethod;
@@ -9,8 +9,11 @@ use solhat::drizzle::Scale;
 use solhat::limiting::frame_limit_determinate;
 use solhat::offsetting::frame_offset_analysis;
 use solhat::rotation::frame_rotation_analysis;
+use solhat::ser::SerFile;
 use solhat::stacking::process_frame_stacking;
 use solhat::target::Target;
+
+use crate::subs::runnable::RunnableSubcommand;
 
 pb_create!();
 
@@ -122,7 +125,7 @@ impl RunnableSubcommand for Process {
         };
 
         info!("Creating process context...");
-        let mut context = ProcessContext::create_with_calibration_frames(
+        let mut context: ProcessContext<SerFile> = ProcessContext::create_with_calibration_frames(
             &ProcessParameters {
                 input_files: self.input_files.clone(),
                 obj_detection_threshold: self.threshold.unwrap_or(5000.0),

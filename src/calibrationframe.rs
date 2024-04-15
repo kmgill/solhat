@@ -1,8 +1,12 @@
-use crate::mean;
-use crate::median;
+use std::{ffi::OsStr, path::Path};
+
 use anyhow::{Error, Result};
 use sciimg::prelude::*;
-use std::{ffi::OsStr, path::Path};
+
+use crate::datasource::DataSource;
+use crate::mean;
+use crate::median;
+use crate::ser::SerFile;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ComputeMethod {
@@ -14,14 +18,13 @@ pub struct CalibrationImage {
     pub image: Option<Image>,
 }
 
-fn create_mean_from_ser(ser_file_path: &str) -> Result<Image> {
-    let input_files: Vec<&str> = vec![ser_file_path];
-    let mean_stack = mean::compute_mean(&input_files, true)?;
+fn create_mean_from_ser<F: DataSource + Send + Sync + 'static>(ser_file: &F) -> Result<Image> {
+    let mean_stack = mean::compute_mean(ser_file, true)?;
     Ok(mean_stack)
 }
 
-fn create_median_from_ser(ser_file_path: &str) -> Result<Image> {
-    median::compute_mean(ser_file_path)
+fn create_median_from_ser<F: DataSource + Send + Sync + 'static>(ser_file: &F) -> Result<Image> {
+    median::compute_mean(ser_file)
 }
 
 impl CalibrationImage {
@@ -41,9 +44,10 @@ impl CalibrationImage {
     }
 
     pub fn new_from_ser(ser_path: &str, method: ComputeMethod) -> Result<Self> {
+        let ser_file = SerFile::load_ser(ser_path)?;
         let image = match method {
-            ComputeMethod::Mean => create_mean_from_ser(ser_path)?,
-            ComputeMethod::Median => create_median_from_ser(ser_path)?,
+            ComputeMethod::Mean => create_mean_from_ser(&ser_file)?,
+            ComputeMethod::Median => create_median_from_ser(&ser_file)?,
         };
         Ok(CalibrationImage { image: Some(image) })
     }

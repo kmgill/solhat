@@ -1,13 +1,16 @@
-use crate::context::ProcessContext;
-use crate::framerecord::FrameRecord;
 use anyhow::Result;
 
-pub fn frame_limit_determinate<F>(
-    context: &ProcessContext,
-    on_frame_checked: F,
+use crate::context::ProcessContext;
+use crate::datasource::DataSource;
+use crate::framerecord::FrameRecord;
+
+pub fn frame_limit_determinate<C, F>(
+    context: &ProcessContext<F>,
+    on_frame_checked: C,
 ) -> Result<Vec<FrameRecord>>
 where
-    F: Fn(&FrameRecord) + Send + Sync + 'static,
+    C: Fn(&FrameRecord) + Send + Sync + 'static,
+    F: DataSource,
 {
     let mut frame_records: Vec<FrameRecord> = context
         .frame_records
