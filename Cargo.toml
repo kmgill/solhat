@@ -22,29 +22,29 @@ debug = 2
 
 
 [dependencies]
-image = "0.24.1"
-imageproc = "0.23.0"
-clap = { version = "4.2.7", features = ["derive"] }
+image = "0.25.1"
+imageproc = "0.24.0"
+clap = { version = "4.5.4", features = ["derive"] }
 memmap = "0.7.0"
 astro = "2.0.0"
 sun = "0.2.0"
-chrono = "0.4.19"
+chrono = "0.4.38"
 fastblur = "0.1.1"
-rayon = "1.5.3"
+rayon = "1.10.0"
 sciimg = {git = "https://github.com/MarsRaw/sciimg.git", branch = "kmgill_develop", features = ["rayon"]}
 # sciimg = {path = "../sciimg"}
 stump = {git = "https://github.com/MarsRaw/stump.git"}
-toml = "0.7.4"
-serde = { version = "1.0.125", features = ["derive"] }
+toml = "0.8.12"
+serde = { version = "1.0.197", features = ["derive"] }
 astral = {  git="https://github.com/kmgill/astral" }
-wild = "2.0.4"
-num_cpus = "1.13.1"
-anyhow = "1.0.65"
-indicatif = "0.17.3"
+wild = "2.2.1"
+num_cpus = "1.16.0"
+anyhow = "1.0.82"
+indicatif = "0.17.8"
 lazy_static = "1.4.0"
-serde_json = "1.0.64"
-async-trait = "0.1.57"
-tokio = {version="1.21.2", features= ["full"]}
-colored = "2.0.0"
-itertools = "0.10.5"
+serde_json = "1.0.115"
+async-trait = "0.1.80"
+tokio = {version="1.37.0", features= ["full"]}
+colored = "2.1.0"
+itertools = "0.12.1"
 

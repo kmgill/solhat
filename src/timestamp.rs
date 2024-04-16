@@ -124,7 +124,7 @@ impl TimeStamp {
                 .unwrap()
                 .and_hms_opt(self.hour as u32, self.minute as u32, self.second as u32)
                 .unwrap();
-        date_time.timestamp()
+        date_time.and_utc().timestamp()
     }
 
     pub fn to_chrono_utc(&self) -> DateTime<Utc> {
