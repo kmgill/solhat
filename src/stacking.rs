@@ -1,14 +1,17 @@
-use crate::framerecord::FrameRecord;
-use crate::{context::ProcessContext, drizzle::BilinearDrizzle};
 use anyhow::{anyhow, Result};
 use rayon::prelude::*;
 
-pub fn process_frame_stacking<F>(
-    context: &ProcessContext,
-    on_frame_checked: F,
+use crate::datasource::DataSource;
+use crate::framerecord::FrameRecord;
+use crate::{context::ProcessContext, drizzle::BilinearDrizzle};
+
+pub fn process_frame_stacking<C, F>(
+    context: &ProcessContext<F>,
+    on_frame_checked: C,
 ) -> Result<BilinearDrizzle>
 where
-    F: Fn(&FrameRecord) + Send + Sync + 'static,
+    C: Fn(&FrameRecord) + Send + Sync + 'static,
+    F: DataSource + Send + Sync + 'static,
 {
     if context.frame_records.is_empty() {
         return Err(anyhow!("No frames to stack!"));

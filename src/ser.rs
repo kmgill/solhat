@@ -1,45 +1,14 @@
 // Technical specification: http://www.grischa-hahn.homepage.t-online.de/astro/ser/SER%20Doc%20V3b.pdf
 
-use crate::timestamp;
-use anyhow::{anyhow, Result};
+use anyhow::{Error, Result};
 use sciimg::{binfilereader::*, debayer, enums::ImageMode, image, imagebuffer};
+
+use crate::datasource::{ColorFormatId, DataFrame, DataSource};
+use crate::timestamp;
+use crate::timestamp::TimeStamp;
 
 const HEADER_SIZE_BYTES: usize = 178;
 const TIMESTAMP_SIZE_BYTES: usize = 8;
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum ColorFormatId {
-    Mono = 0,
-    BayerRggb = 8,
-    BayerGrbg = 9,
-    BayerGbrg = 10,
-    BayerBggr = 11,
-    BayerCyym = 16,
-    BayerYcmy = 17,
-    BayerYmcy = 18,
-    BayerMyyc = 19,
-    Rgb = 100,
-    Bgr = 101,
-}
-
-impl ColorFormatId {
-    pub fn from_i32(v: i32) -> ColorFormatId {
-        match v {
-            0 => ColorFormatId::Mono,
-            8 => ColorFormatId::BayerRggb,
-            9 => ColorFormatId::BayerGrbg,
-            10 => ColorFormatId::BayerGbrg,
-            11 => ColorFormatId::BayerBggr,
-            16 => ColorFormatId::BayerCyym,
-            17 => ColorFormatId::BayerYcmy,
-            18 => ColorFormatId::BayerYmcy,
-            19 => ColorFormatId::BayerMyyc,
-            100 => ColorFormatId::Rgb,
-            101 => ColorFormatId::Bgr,
-            _ => panic!("Invalid color format enum value: {}", v),
-        }
-    }
-}
 
 // Variable size of pixel_depth * image_width * image_height
 // Frames block is frame_size * num_images
@@ -110,10 +79,19 @@ impl SerFrame {
     }
 }
 
+impl From<SerFrame> for DataFrame {
+    fn from(val: SerFrame) -> Self {
+        DataFrame {
+            buffer: val.buffer,
+            timestamp: val.timestamp,
+        }
+    }
+}
+
 // Full implementation of the SER specification is sorta impractical at this time
 // since I lack both the requisite test data and the motivation to actually do it.
 impl SerFile {
-    pub fn print_header_details(&self) {
+    pub fn print_ser_header_details(&self) {
         println!("SER Header Values:");
         println!("File Id: {}", self.file_id);
         println!("Camera Series Id: {}", self.camera_series_id);
@@ -196,14 +174,21 @@ impl SerFile {
             (8 * self.frame_count * has_ts) // Timestamps
     }
 
-    pub fn validate(&self) {
+    pub fn validate_ser(&self) -> Result<()> {
         let expected_size = self.expected_size();
-        assert_eq!(self.total_size, expected_size);
+        if self.total_size == expected_size {
+            Ok(())
+        } else {
+            Err(Error::msg(format!(
+                "Size mismatch: {} != {}",
+                self.total_size, expected_size
+            )))
+        }
     }
 
-    pub fn get_frame_timestamp(&self, frame_num: usize) -> Result<u64> {
+    pub fn get_ser_frame_timestamp(&self, frame_num: usize) -> Result<u64> {
         if frame_num >= self.frame_count {
-            return Err(anyhow!("Frame number out of range"));
+            return Err(Error::msg("Frame number out of range"));
         }
 
         if !self.has_timestamps() {
@@ -215,9 +200,9 @@ impl SerFile {
             .read_u64_with_endiness(timestamp_start_index, Endian::NativeEndian)
     }
 
-    pub fn get_frame(&self, frame_num: usize) -> Result<SerFrame> {
+    pub fn get_ser_frame(&self, frame_num: usize) -> Result<SerFrame> {
         if frame_num >= self.frame_count {
-            return Err(anyhow!("Frame number out of range"));
+            return Err(Error::msg("Frame number out of range"));
         }
 
         let image_frame_size_bytes = self.image_frame_size_bytes();
@@ -266,7 +251,7 @@ impl SerFile {
         match self.color_id {
             ColorFormatId::Mono => Ok(SerFrame::new(
                 &frame_buffer,
-                self.get_frame_timestamp(frame_num)
+                self.get_ser_frame_timestamp(frame_num)
                     .expect("Failed to extract frame timestamp"),
             )),
             ColorFormatId::BayerRggb => {
@@ -274,7 +259,7 @@ impl SerFile {
                     debayer::debayer(&frame_buffer, debayer::DebayerMethod::Malvar).unwrap();
                 Ok(SerFrame::new_rgb(
                     debayered,
-                    self.get_frame_timestamp(frame_num)
+                    self.get_ser_frame_timestamp(frame_num)
                         .expect("Failed to extract frame timestamp"),
                 ))
             }
@@ -282,5 +267,87 @@ impl SerFile {
                 panic!("Unsupported color mode: {:?}", self.color_id);
             }
         }
+    }
+}
+
+impl DataSource for SerFile {
+    fn color_id(&self) -> ColorFormatId {
+        self.color_id
+    }
+
+    fn file_id(&self) -> String {
+        self.file_id.clone()
+    }
+
+    fn image_width(&self) -> usize {
+        self.image_width
+    }
+
+    fn image_height(&self) -> usize {
+        self.image_height
+    }
+
+    fn pixel_depth(&self) -> usize {
+        self.pixel_depth
+    }
+
+    fn frame_count(&self) -> usize {
+        self.frame_count
+    }
+
+    fn observer(&self) -> String {
+        self.observer.clone()
+    }
+
+    fn instrument(&self) -> String {
+        self.instrument.clone()
+    }
+
+    fn telescope(&self) -> String {
+        self.telescope.clone()
+    }
+
+    fn date_time(&self) -> TimeStamp {
+        self.date_time
+    }
+
+    fn date_time_utc(&self) -> TimeStamp {
+        self.date_time_utc
+    }
+
+    fn total_file_size(&self) -> usize {
+        self.total_size
+    }
+
+    fn get_frame(&self, frame_num: usize) -> Result<DataFrame> {
+        Ok(self.get_ser_frame(frame_num)?.into())
+    }
+
+    fn get_frame_timestamp(&self, frame_num: usize) -> Result<TimeStamp> {
+        Ok(TimeStamp::from(self.get_ser_frame_timestamp(frame_num)?))
+    }
+
+    fn source_file(&self) -> String {
+        self.source_file.clone()
+    }
+
+    fn open(path: &[String]) -> Result<Self> {
+        if path.len() != 1 {
+            Err(Error::msg("Only one ser file supported at this time"))
+        } else {
+            SerFile::load_ser(&path[0])
+        }
+    }
+
+    fn validate(&self) -> Result<()> {
+        self.validate_ser()
+    }
+
+    fn print_header_details(&self) {
+        self.print_ser_header_details();
+    }
+
+    fn file_hash(&self) -> String {
+        self.source_file.clone()
     }
 }

@@ -1,7 +1,8 @@
-use crate::ser::ColorFormatId;
-use crate::ser::SerFile;
 use anyhow::{anyhow, Result};
 use sciimg::prelude::*;
+
+use crate::datasource::ColorFormatId;
+use crate::datasource::DataSource;
 
 #[derive(Debug, Default)]
 struct MedianBuffer {
@@ -42,54 +43,48 @@ impl MedianBuffer {
     }
 }
 
-pub fn compute_mean(ser_file_path: &str) -> Result<Image> {
-    if !path::file_exists(ser_file_path) {
-        Err(anyhow!("File not found: {}", ser_file_path))
-    } else {
-        let ser_file = SerFile::load_ser(ser_file_path)?;
+pub fn compute_mean<F: DataSource>(ser_file: &F) -> Result<Image> {
+    let mut median_buffers = match ser_file.color_id() {
+        ColorFormatId::Mono => vec![MedianBuffer::new(
+            ser_file.image_width() * ser_file.image_height(),
+        )],
+        _ => vec![
+            MedianBuffer::new(ser_file.image_width() * ser_file.image_height()),
+            MedianBuffer::new(ser_file.image_width() * ser_file.image_height()),
+            MedianBuffer::new(ser_file.image_width() * ser_file.image_height()),
+        ],
+    };
 
-        let mut median_buffers = match ser_file.color_id {
-            ColorFormatId::Mono => vec![MedianBuffer::new(
-                ser_file.image_width * ser_file.image_height,
-            )],
-            _ => vec![
-                MedianBuffer::new(ser_file.image_width * ser_file.image_height),
-                MedianBuffer::new(ser_file.image_width * ser_file.image_height),
-                MedianBuffer::new(ser_file.image_width * ser_file.image_height),
-            ],
-        };
+    iproduct!(0..ser_file.frame_count(), 0..median_buffers.len()).for_each(|(f, b)| {
+        let frame = ser_file.get_frame(f).expect("Failed to load image frame");
+        median_buffers[b]
+            .add_buffer(&frame.buffer.get_band(0).buffer.to_vector())
+            .expect("Failed to add band buffer to median");
+    });
 
-        iproduct!(0..ser_file.frame_count, 0..median_buffers.len()).for_each(|(f, b)| {
-            let frame = ser_file.get_frame(f).expect("Failed to load image frame");
-            median_buffers[b]
-                .add_buffer(&frame.buffer.get_band(0).buffer.to_vector())
-                .expect("Failed to add band buffer to median");
-        });
-
-        Ok(match ser_file.color_id {
-            ColorFormatId::Mono => Image::new_from_buffer_mono(&ImageBuffer::from_vec(
+    Ok(match ser_file.color_id() {
+        ColorFormatId::Mono => Image::new_from_buffer_mono(&ImageBuffer::from_vec(
+            &median_buffers[0].get_median_vector(),
+            ser_file.image_width(),
+            ser_file.image_height(),
+        )?)?,
+        _ => Image::new_from_buffers_rgb(
+            &ImageBuffer::from_vec(
                 &median_buffers[0].get_median_vector(),
-                ser_file.image_width,
-                ser_file.image_height,
-            )?),
-            _ => Image::new_from_buffers_rgb(
-                &ImageBuffer::from_vec(
-                    &median_buffers[0].get_median_vector(),
-                    ser_file.image_width,
-                    ser_file.image_height,
-                )?,
-                &ImageBuffer::from_vec(
-                    &median_buffers[0].get_median_vector(),
-                    ser_file.image_width,
-                    ser_file.image_height,
-                )?,
-                &ImageBuffer::from_vec(
-                    &median_buffers[0].get_median_vector(),
-                    ser_file.image_width,
-                    ser_file.image_height,
-                )?,
-                ImageMode::U16BIT,
-            ),
-        }?)
-    }
+                ser_file.image_width(),
+                ser_file.image_height(),
+            )?,
+            &ImageBuffer::from_vec(
+                &median_buffers[0].get_median_vector(),
+                ser_file.image_width(),
+                ser_file.image_height(),
+            )?,
+            &ImageBuffer::from_vec(
+                &median_buffers[0].get_median_vector(),
+                ser_file.image_width(),
+                ser_file.image_height(),
+            )?,
+            ImageMode::U16BIT,
+        )?,
+    })
 }

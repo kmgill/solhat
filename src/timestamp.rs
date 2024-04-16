@@ -1,6 +1,6 @@
 extern crate astro;
-use astro::*;
 
+use astro::*;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 
 const SEPTASECONDS_PER_SECOND: u64 = 10000000;
@@ -139,5 +139,11 @@ impl TimeStamp {
             .unwrap()
             .and_local_timezone(Utc)
             .unwrap()
+    }
+}
+
+impl From<u64> for TimeStamp {
+    fn from(value: u64) -> Self {
+        TimeStamp::from_u64(value)
     }
 }

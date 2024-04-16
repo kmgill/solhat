@@ -1,16 +1,13 @@
 #[macro_use]
-extern crate stump;
-
-#[macro_use]
 extern crate itertools;
-
 #[macro_use]
-extern crate lazy_static;
+extern crate stump;
 
 pub mod anaysis;
 pub mod calibrationframe;
 pub mod centerofmass;
 pub mod context;
+pub mod datasource;
 pub mod drizzle;
 pub mod fpmap;
 pub mod framerecord;
