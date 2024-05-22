@@ -6,6 +6,7 @@ use solhat::calibrationframe::CalibrationImage;
 use solhat::calibrationframe::ComputeMethod;
 use solhat::context::*;
 use solhat::drizzle::Scale;
+use solhat::drizzle::StackAlgorithm;
 use solhat::limiting::frame_limit_determinate;
 use solhat::offsetting::frame_offset_analysis;
 use solhat::rotation::frame_rotation_analysis;
@@ -139,6 +140,7 @@ impl RunnableSubcommand for Process {
                 max_sigma: self.maxsigma,
                 top_percentage: self.percentofmax,
                 drizzle_scale: Scale::from(&self.drizzle.to_owned().unwrap_or("1.0".to_owned()))?,
+                algorithm: StackAlgorithm::Average,
                 initial_rotation: self.rotation.unwrap_or(0.0),
                 flat_inputs: self.flat.to_owned(),
                 dark_inputs: self.dark.to_owned(),
@@ -202,12 +204,9 @@ impl RunnableSubcommand for Process {
             pb_zero!();
             pb_set_prefix!("Stacking Frames");
             pb_set_length!(context.frame_records.len());
-            let drizzle_output = process_frame_stacking(&context, |_fr| {
+            let mut stacked_buffer = process_frame_stacking(&context, |_fr| {
                 pb_inc!();
             })?;
-
-            info!("Finalizing and saving");
-            let mut stacked_buffer = drizzle_output.get_finalized().unwrap();
 
             // Zero would indicate that the user did not ask for cropping since that's not a valid crop dimension anyway
             let crop_width = context.parameters.crop_width.unwrap_or(0);

@@ -6,6 +6,7 @@ use solhat::calibrationframe::CalibrationImage;
 use solhat::calibrationframe::ComputeMethod;
 use solhat::context::*;
 use solhat::drizzle::Scale;
+use solhat::drizzle::StackAlgorithm;
 use solhat::ser::SerFile;
 use solhat::target::Target;
 
@@ -131,6 +132,7 @@ impl RunnableSubcommand for PreProcess {
                 max_sigma: self.maxsigma,
                 top_percentage: self.percentofmax,
                 drizzle_scale: Scale::from(&self.drizzle.to_owned().unwrap_or("1.0".to_owned()))?,
+                algorithm: StackAlgorithm::Average,
                 initial_rotation: self.rotation.unwrap_or(0.0),
                 flat_inputs: self.flat.to_owned(),
                 dark_inputs: self.dark.to_owned(),

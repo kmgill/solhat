@@ -5,6 +5,7 @@ use solhat::calibrationframe::CalibrationImage;
 use solhat::calibrationframe::ComputeMethod;
 use solhat::context::*;
 use solhat::drizzle::Scale;
+use solhat::drizzle::StackAlgorithm;
 use solhat::ser::SerFile;
 use solhat::target::Target;
 use solhat::threshtest::compute_threshtest_image;
@@ -81,6 +82,7 @@ impl RunnableSubcommand for ThreshTest {
                 max_sigma: None,
                 top_percentage: None,
                 drizzle_scale: Scale::Scale1_0,
+                algorithm: StackAlgorithm::Average,
                 initial_rotation: 0.0,
                 flat_inputs: self.flat.to_owned(),
                 dark_inputs: self.dark.to_owned(),

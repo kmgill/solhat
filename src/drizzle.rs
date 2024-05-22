@@ -12,6 +12,21 @@ fn round_f64(v: f64) -> f64 {
     (v * 100000.0).round() / 100000.0
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Default, Deserialize, Serialize)]
+pub enum StackAlgorithm {
+    #[default]
+    Average,
+    Median,
+    Minimum,
+}
+
+#[derive(Debug, Clone)]
+pub enum StackAlgorithmImpl {
+    Average(AverageStackBuffer),
+    Median(MedianStackBuffer),
+    Minimum(MinimumStackBuffer),
+}
+
 /// Supported drizzle scalings
 #[derive(Debug, Copy, Clone, PartialEq, Default, Deserialize, Serialize)]
 pub enum Scale {
@@ -59,15 +74,238 @@ impl Display for Scale {
     }
 }
 
+pub trait StackBuffer {
+    fn new(width: usize, height: usize, num_bands: usize) -> Self;
+    fn put(&mut self, x: usize, y: usize, values: &[f32; 3]);
+    fn get(&self, x: usize, y: usize, band: usize) -> f32;
+    fn get_finalized(&self) -> Result<Image>;
+    fn num_bands(&self) -> usize;
+    fn add_other(&mut self, other: &Self);
+}
+
+#[derive(Debug, Clone)]
+pub struct MinimumStackBuffer {
+    num_bands: usize,
+    buffer: Image,
+}
+
+impl StackBuffer for MinimumStackBuffer {
+    fn new(width: usize, height: usize, num_bands: usize) -> Self {
+        MinimumStackBuffer {
+            num_bands,
+            buffer: Image::new_with_bands(width, height, num_bands, ImageMode::U16BIT)
+                .expect("Failed to allocate rgbimage"),
+        }
+    }
+
+    fn put(&mut self, x: usize, y: usize, values: &[f32; 3]) {
+        (0..self.num_bands).for_each(|i| {
+            let v = self.get(x, y, i);
+
+            let use_v = if v > 0.0 { values[i].min(v) } else { values[i] };
+
+            self.buffer.put(x, y, use_v, i);
+        });
+    }
+
+    fn get(&self, x: usize, y: usize, band: usize) -> f32 {
+        if band >= self.num_bands {
+            0.0
+        } else {
+            self.buffer.get_band(band).get(x, y)
+        }
+    }
+
+    fn get_finalized(&self) -> Result<Image> {
+        Ok(self.buffer.clone())
+    }
+
+    fn num_bands(&self) -> usize {
+        self.num_bands
+    }
+
+    fn add_other(&mut self, other: &Self) {
+        for y in 0..self.buffer.height {
+            for x in 0..self.buffer.width {
+                for b in 0..self.num_bands {
+                    let v = self.get(x, y, b);
+                    let ov = other.get(x, y, b);
+
+                    let fv = if v > 0.0 { v.min(ov) } else { ov };
+
+                    self.buffer.put(x, y, fv, b);
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct AverageStackBuffer {
+    num_bands: usize,
+    buffer: Image,
+    divisor: ImageBuffer,
+}
+
+impl StackBuffer for AverageStackBuffer {
+    fn new(width: usize, height: usize, num_bands: usize) -> Self {
+        AverageStackBuffer {
+            num_bands,
+            buffer: Image::new_with_bands(width, height, num_bands, ImageMode::U16BIT)
+                .expect("Failed to allocate rgbimage"),
+            divisor: ImageBuffer::new(width, height)
+                .expect("Failed to create drizzle divisor buffer"),
+        }
+    }
+
+    fn put(&mut self, x: usize, y: usize, values: &[f32; 3]) {
+        (0..self.num_bands).for_each(|i| {
+            let v = self.get(x, y, i);
+            self.buffer.put(x, y, v + values[i], i);
+        });
+        self.divisor.put(x, y, 1.0);
+    }
+
+    fn get(&self, x: usize, y: usize, band: usize) -> f32 {
+        if band >= self.num_bands {
+            0.0
+        } else {
+            self.buffer.get_band(band).get(x, y)
+        }
+    }
+
+    fn get_finalized(&self) -> Result<Image> {
+        let mut final_buffer = self.buffer.clone();
+        final_buffer.divide_from_each(&self.divisor);
+        Ok(final_buffer)
+    }
+
+    fn num_bands(&self) -> usize {
+        self.num_bands
+    }
+
+    fn add_other(&mut self, other: &Self) {
+        self.buffer.add(&other.buffer);
+        self.divisor.add_mut(&other.divisor);
+    }
+}
+
+#[derive(Debug, Clone)]
+struct VectorMatrix {
+    width: usize,
+    height: usize,
+    matrix: Vec<Vec<f32>>,
+}
+
+impl VectorMatrix {
+    pub fn new(width: usize, height: usize) -> Self {
+        let l = width * height;
+        let matrix = (0..l)
+            .map(|_| Vec::with_capacity(200))
+            .collect::<Vec<Vec<f32>>>();
+        VectorMatrix {
+            width,
+            height,
+            matrix,
+        }
+    }
+
+    pub fn put(&mut self, x: usize, y: usize, value: f32) {
+        let idx = y * self.width + x;
+        if idx < self.matrix.len() {
+            self.matrix[idx].push(value);
+        }
+    }
+
+    pub fn get_median(&self, x: usize, y: usize) -> f32 {
+        let idx = y * self.width + x;
+        let mut s = self.matrix[idx].clone();
+        s.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        s[s.len() / 2]
+    }
+
+    pub fn extend(&mut self, other: &VectorMatrix) {
+        for i in 0..self.matrix.len() {
+            self.matrix[i].extend(&other.matrix[i]);
+        }
+    }
+
+    pub fn to_median_image(&self) -> ImageBuffer {
+        let mut buffer =
+            ImageBuffer::new_as_mode(self.width, self.height, ImageMode::U16BIT).unwrap();
+
+        for y in 0..self.height {
+            for x in 0..self.width {
+                buffer.put(x, y, self.get_median(x, y));
+            }
+        }
+        buffer
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MedianStackBuffer {
+    num_bands: usize,
+    width: usize,
+    height: usize,
+    matrix: Vec<VectorMatrix>,
+}
+
+impl StackBuffer for MedianStackBuffer {
+    fn new(width: usize, height: usize, num_bands: usize) -> Self {
+        let m = (0..num_bands)
+            .map(|_| VectorMatrix::new(width, height))
+            .collect();
+
+        MedianStackBuffer {
+            num_bands,
+            width,
+            height,
+            matrix: m,
+        }
+    }
+
+    fn put(&mut self, x: usize, y: usize, values: &[f32; 3]) {
+        for (b, value) in values.iter().enumerate().take(self.num_bands) {
+            self.matrix[b].put(x, y, *value);
+        }
+    }
+
+    fn get(&self, x: usize, y: usize, band: usize) -> f32 {
+        self.matrix[band].get_median(x, y)
+    }
+
+    fn get_finalized(&self) -> Result<Image> {
+        let mut image =
+            Image::new_with_bands(self.width, self.height, self.num_bands, ImageMode::U16BIT)
+                .unwrap();
+
+        for b in 0..self.num_bands {
+            image.set_band(&self.matrix[b].to_median_image(), b);
+        }
+
+        Ok(image)
+    }
+
+    fn num_bands(&self) -> usize {
+        self.num_bands
+    }
+
+    fn add_other(&mut self, other: &Self) {
+        for b in 0..self.num_bands {
+            self.matrix[b].extend(&other.matrix[b]);
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct BilinearDrizzle {
     in_width: usize,
     in_height: usize,
     out_width: usize,
     out_height: usize,
-    buffer: Image,
+    buffer: StackAlgorithmImpl,
     frame_add_count: usize,
-    divisor: ImageBuffer,
     horiz_offset: i32,
     vert_offset: i32,
 }
@@ -77,9 +315,9 @@ impl BilinearDrizzle {
         in_width: usize,
         in_height: usize,
         scale: Scale,
-        num_bands: usize,
         horiz_offset: i32,
         vert_offset: i32,
+        stack_buffer: StackAlgorithmImpl,
     ) -> BilinearDrizzle {
         let out_width = (in_width as f32 * scale.value()).ceil() as usize;
         let out_height = (in_height as f32 * scale.value()).ceil() as usize;
@@ -91,10 +329,7 @@ impl BilinearDrizzle {
             frame_add_count: 0,
             horiz_offset,
             vert_offset,
-            buffer: Image::new_with_bands(out_width, out_height, num_bands, ImageMode::U16BIT)
-                .expect("Failed to allocate rgbimage"),
-            divisor: ImageBuffer::new(out_width, out_height)
-                .expect("Failed to create drizzle divisor buffer"),
+            buffer: stack_buffer,
         }
     }
 
@@ -116,44 +351,6 @@ impl BilinearDrizzle {
                 valid: false,
             }
         }
-    }
-
-    /// Adds an image that has already been translated and rotated but not upscaled.
-    pub fn add(&mut self, other: &Image) -> Result<()> {
-        if other.width != self.in_width || other.height != self.in_height {
-            return Err(anyhow!(
-                "Input image does not match expected input dimensions"
-            ));
-        }
-
-        for y in 0..self.out_height {
-            for x in 0..self.out_width {
-                let in_pt = self.buffer_point_to_input_point(x, y);
-
-                if in_pt.valid {
-                    self.divisor.put(x, y, self.divisor.get(x, y) + 1.0);
-
-                    for band in 0..other.num_bands() {
-                        if let Some(v) = in_pt.get_interpolated_color(other.get_band(band)) {
-                            self.buffer
-                                .put(x, y, v + self.buffer.get_band(0).get(x, y), band);
-
-                            // If we're running as a 3 band drizzle buffer and the user passed in a single-band frame
-                            if other.num_bands() == 1 {
-                                self.buffer
-                                    .put(x, y, v + self.buffer.get_band(1).get(x, y), 1);
-                                self.buffer
-                                    .put(x, y, v + self.buffer.get_band(2).get(x, y), 2);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        self.frame_add_count += 1;
-
-        Ok(())
     }
 
     // Adds the image. Each pixel point will be transformed by the offset and rotation. Rotation is relative to
@@ -191,47 +388,47 @@ impl BilinearDrizzle {
                 in_pt.x -= offset.h;
                 in_pt.y -= offset.v;
 
-                self.divisor.put(
-                    x as usize,
-                    y as usize,
-                    self.divisor.get(x as usize, y as usize) + 1.0,
-                );
-                for band in 0..other.num_bands() {
+                let mut abc: [f32; 3] = [0.0, 0.0, 0.0];
+
+                for (band, value) in abc.iter_mut().enumerate().take(other.num_bands()) {
                     if let Some(v) = in_pt.get_interpolated_color(other.get_band(band)) {
-                        let x2 = x + self.horiz_offset;
-                        let y2 = y + self.vert_offset;
-
-                        if x2 >= self.out_width as i32
-                            || y2 >= self.out_height as i32
-                            || x2 < 0
-                            || y2 < 0
-                        {
-                            continue;
-                        }
-                        self.buffer.put(
-                            x2 as usize,
-                            y2 as usize,
-                            v + self.buffer.get_band(band).get(x2 as usize, y2 as usize),
-                            band,
-                        );
-
-                        // If we're running as a 3 band drizzle buffer and the user passed in a single-band frame
-                        if other.num_bands() == 1 {
-                            self.buffer.put(
-                                x2 as usize,
-                                y2 as usize,
-                                v + self.buffer.get_band(1).get(x2 as usize, y2 as usize),
-                                1,
-                            );
-                            self.buffer.put(
-                                x2 as usize,
-                                y2 as usize,
-                                v + self.buffer.get_band(2).get(x2 as usize, y2 as usize),
-                                2,
-                            );
-                        }
+                        *value = v;
                     }
                 }
+
+                let x2 = x + self.horiz_offset;
+                let y2 = y + self.vert_offset;
+
+                if x2 >= self.out_width as i32 || y2 >= self.out_height as i32 || x2 < 0 || y2 < 0 {
+                    continue;
+                }
+
+                match &mut self.buffer {
+                    StackAlgorithmImpl::Average(sai) => {
+                        if other.num_bands() == 1 && sai.num_bands() == 3 {
+                            abc[1] = abc[0];
+                            abc[2] = abc[0];
+                        }
+
+                        sai.put(x as usize, y as usize, &abc);
+                    }
+                    StackAlgorithmImpl::Median(sai) => {
+                        if other.num_bands() == 1 && sai.num_bands() == 3 {
+                            abc[1] = abc[0];
+                            abc[2] = abc[0];
+                        }
+
+                        sai.put(x as usize, y as usize, &abc);
+                    }
+                    StackAlgorithmImpl::Minimum(sai) => {
+                        if other.num_bands() == 1 && sai.num_bands() == 3 {
+                            abc[1] = abc[0];
+                            abc[2] = abc[0];
+                        }
+
+                        sai.put(x as usize, y as usize, &abc);
+                    }
+                };
             }
         }
         self.frame_add_count += 1;
@@ -244,12 +441,15 @@ impl BilinearDrizzle {
                 "No frames have been added, cannot divide mean by zero"
             ))
         } else {
-            let mut final_buffer = self.buffer.clone();
-            final_buffer.divide_from_each(&self.divisor);
-            // for band in 0..final_buffer.num_bands() {
-            //     final_buffer.apply_weight_on_band(1.0 / self.frame_add_count as f32, band);
-            // }
-            Ok(final_buffer)
+            // let mut final_buffer = self.buffer.clone();
+            // final_buffer.divide_from_each(&self.divisor);
+            // Ok(final_buffer)
+
+            match &self.buffer {
+                StackAlgorithmImpl::Average(sai) => sai.get_finalized(),
+                StackAlgorithmImpl::Median(sai) => sai.get_finalized(),
+                StackAlgorithmImpl::Minimum(sai) => sai.get_finalized(),
+            }
         }
     }
 
@@ -257,9 +457,26 @@ impl BilinearDrizzle {
         if other.out_width != self.out_width {
             return Err(anyhow!("Buffer dimensions are different. Cannot merge"));
         }
-
-        self.buffer.add(&other.buffer);
-        self.divisor.add_mut(&other.divisor);
+        match &mut self.buffer {
+            StackAlgorithmImpl::Average(sai) => {
+                if let StackAlgorithmImpl::Average(sai_other) = &other.buffer {
+                    sai.add_other(sai_other);
+                }
+            }
+            StackAlgorithmImpl::Median(sai) => {
+                if let StackAlgorithmImpl::Median(sai_other) = &other.buffer {
+                    sai.add_other(sai_other);
+                }
+            }
+            StackAlgorithmImpl::Minimum(sai) => {
+                if let StackAlgorithmImpl::Minimum(sai_other) = &other.buffer {
+                    sai.add_other(sai_other);
+                }
+            }
+        }
+        // self.buffer.add_other(&other.buffer);
+        // self.buffer.add(&other.buffer);
+        // self.divisor.add_mut(&other.divisor);
         self.frame_add_count += other.frame_add_count;
 
         Ok(())

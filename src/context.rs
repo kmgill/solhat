@@ -5,7 +5,7 @@ use sciimg::prelude::ImageBuffer;
 
 use crate::calibrationframe::CalibrationImage;
 use crate::datasource::DataSource;
-use crate::drizzle::Scale;
+use crate::drizzle::{Scale, StackAlgorithm};
 use crate::fpmap::FpMap;
 use crate::framerecord::FrameRecord;
 use crate::hotpixel;
@@ -26,6 +26,7 @@ pub struct ProcessParameters {
     pub max_sigma: Option<f64>,
     pub top_percentage: Option<f64>,
     pub drizzle_scale: Scale,
+    pub algorithm: StackAlgorithm,
     pub initial_rotation: f64,
     pub flat_inputs: Option<String>,
     pub dark_inputs: Option<String>,

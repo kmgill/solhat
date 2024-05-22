@@ -58,6 +58,15 @@ impl Target {
             let rotation =
                 parallacticangle::from_lat_azimuth_altitude(obs_latitude, azimuth, altitude);
 
+            info!(
+                "For time {:?} Sun is at az={}, alt={}, rotation={} (Obs latitude: {})",
+                ts.to_chrono_utc(),
+                azimuth,
+                altitude,
+                rotation,
+                obs_latitude
+            );
+
             Ok(TargetPosition {
                 rotation,
                 altitude,
