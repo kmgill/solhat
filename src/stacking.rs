@@ -54,7 +54,7 @@ where
     let out_width = (in_width as f32 * context.parameters.drizzle_scale.value()).ceil() as usize;
     let out_height = (in_height as f32 * context.parameters.drizzle_scale.value()).ceil() as usize;
 
-    let num_source_bands = context.frame_records[0].num_bands(&context)?;
+    let num_source_bands = context.frame_records[0].num_bands(context)?;
 
     let mut master_drizzle: BilinearDrizzle = BilinearDrizzle::new(
         context
@@ -163,7 +163,7 @@ where
     let out_width = (in_width as f32 * context.parameters.drizzle_scale.value()).ceil() as usize;
     let out_height = (in_height as f32 * context.parameters.drizzle_scale.value()).ceil() as usize;
 
-    let num_source_bands = context.frame_records[0].num_bands(&context)?;
+    let num_source_bands = context.frame_records[0].num_bands(context)?;
 
     let mut master_drizzle: BilinearDrizzle = BilinearDrizzle::new(
         context
