@@ -31,6 +31,11 @@ impl FrameRecord {
         ser.get_frame(self.frame_id)
     }
 
+    pub fn num_bands<F: DataSource>(&self, context: &ProcessContext<F>) -> Result<usize> {
+        let f = self.get_frame(context)?;
+        Ok(f.buffer.num_bands())
+    }
+
     pub fn get_calibrated_frame<F: DataSource>(
         &self,
         context: &ProcessContext<F>,

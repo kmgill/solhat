@@ -20,6 +20,15 @@ pub enum StackAlgorithm {
     Minimum,
 }
 
+impl StackAlgorithm {
+    pub fn allow_parallel(self) -> bool {
+        match self {
+            StackAlgorithm::Average | Self::Minimum => true,
+            StackAlgorithm::Median => false, // Current implementation will use WAY too much memory
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum StackAlgorithmImpl {
     Average(AverageStackBuffer),
