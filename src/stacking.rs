@@ -87,7 +87,11 @@ where
         },
     );
 
-    let num_per_chunk = context.frame_records.len() / num_cpus::get();
+    let mut num_per_chunk = context.frame_records.len() / num_cpus::get();
+    if num_per_chunk == 0 {
+        // Force them through!
+        num_per_chunk = 1;
+    }
 
     let sub_drizzles: Vec<BilinearDrizzle> = context
         .frame_records
